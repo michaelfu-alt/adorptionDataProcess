@@ -4,7 +4,7 @@ from .left_panel import LeftPanel
 from .right_panel import RightPanel
 
 class MainView(QWidget):
-    def __init__(self, controller):
+    def __init__(self, controller=None):
         super().__init__()
         self.controller = controller
         self.setWindowTitle("iPore Data Wizard")

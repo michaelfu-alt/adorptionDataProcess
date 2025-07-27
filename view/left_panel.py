@@ -33,11 +33,24 @@ class LeftPanel(QWidget):
         db_group.setLayout(db_layout)
         layout.addWidget(db_group)
 
+        # 信号连接
+        # self.btn_select_db.clicked.connect(self.controller.select_database)
+        # self.btn_new_db.clicked.connect(self.controller.create_database)
+        # self.btn_backup_db.clicked.connect(self.controller.backup_database)
+        # self.btn_delete_db.clicked.connect(self.controller.delete_database)
+        # self.db_combo.currentIndexChanged.connect(self.on_db_combo_changed)
+        self.btn_select_db.clicked.connect(self._on_select_db_clicked)
+        self.btn_new_db.clicked.connect(self._on_new_db_clicked)
+        self.btn_backup_db.clicked.connect(self._on_backup_db_clicked)
+        self.btn_delete_db.clicked.connect(self._on_delete_db_clicked)
+
         # 控制按钮区
         ctrl_layout = QHBoxLayout()
         self.btn_merge_dft = QPushButton("Merge-DFT Files")
         self.btn_load_folder = QPushButton("Load File Folder")
         self.btn_load_files = QPushButton("Load Files")
+        self.btn_load_files.clicked.connect(self.on_load_files_btn_clicked)
+
         self.btn_dft_analysis = QPushButton("DFT Analysis")
         self.btn_save_db = QPushButton("Save DB")
         ctrl_layout.addWidget(self.btn_merge_dft)
@@ -46,7 +59,12 @@ class LeftPanel(QWidget):
         ctrl_layout.addWidget(self.btn_dft_analysis)
         ctrl_layout.addWidget(self.btn_save_db)
         layout.addLayout(ctrl_layout)
+        
 
+        
+        # 信号连接
+        self.btn_load_files.clicked.connect(self.on_load_files_btn_clicked)
+      
         # 样品数据表（Table）
         self.sample_table = QTableWidget(0, 14)
         self.sample_table.setHorizontalHeaderLabels([
@@ -95,3 +113,49 @@ class LeftPanel(QWidget):
         self.sample_menu.addAction("Play")
 
         self.setLayout(layout)
+
+
+    def update_db_combo(self, new_path):
+        exist = [self.db_combo.itemText(i) for i in range(self.db_combo.count())]
+        if new_path not in exist:
+            self.db_combo.addItem(new_path)
+        self.db_combo.setCurrentText(new_path)
+
+    def clear_db_combo(self):
+        self.db_combo.clear()
+
+    def set_status(self, msg):
+        self.status_label.setText(msg)
+
+    def on_db_combo_changed(self, index):
+        path = self.db_combo.currentText()
+        if path:
+            self.controller.model.open_database(path)
+            self.set_status(f"Database loaded: {path}")
+    
+
+    def _on_select_db_clicked(self):
+            print("Select DB Clicked")
+            print("self =", self)
+            print("self.controller =", getattr(self, "controller", None))
+            if self.controller: 
+                print("controller is", self.controller)
+                self.controller.select_database()
+
+    def _on_new_db_clicked(self):
+        print("New DB Clicked")
+        if self.controller: self.controller.create_database()
+
+    def _on_backup_db_clicked(self):
+        print("Backup DB Clicked")
+        if self.controller: self.controller.backup_database()
+
+    def _on_delete_db_clicked(self):
+        print("Delete DB Clicked")
+        if self.controller: self.controller.delete_database()
+
+    def on_load_files_btn_clicked(self):
+        print("Load Files Clicked")
+        if self.controller:
+            print("controller is", self.controller)
+            self.controller.load_files()
