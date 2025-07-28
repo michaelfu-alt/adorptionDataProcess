@@ -1,7 +1,7 @@
 # view/left_panel.py
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QLabel, QGroupBox,
-    QTableWidget, QMenu, QAbstractItemView, QFrame
+    QTableWidget, QTableWidgetItem, QMenu, QAbstractItemView, QFrame
 )
 from PySide6.QtCore import Qt, Signal
 import os
@@ -125,11 +125,18 @@ class LeftPanel(QWidget):
     def connect_signals(self):
         # controller赋值后，单独调用此函数进行信号绑定
         # self.db_combo.currentIndexChanged.connect(self.on_db_combo_changed)
-        self.btn_select_db.clicked.connect(lambda: self.controller.select_database())
+        self.btn_select_db.clicked.connect(self.on_select_db_clicked)
         self.btn_new_db.clicked.connect(self.controller.create_database)
         self.btn_backup_db.clicked.connect(self.controller.backup_database)
         self.btn_delete_db.clicked.connect(self.controller.delete_database)
 
+
+    def bind_controller(self, controller, last_db=None):
+        self.controller = controller
+        self.connect_signals()   # 一起做信号绑定
+        if last_db:
+            print(f"Auto-select last_db: {last_db}")
+            self.controller.select_database(last_db)
 
     def update_db_combo(self, full_path):
         """在 combo 中显示文件名，但存储全路径"""
@@ -167,13 +174,13 @@ class LeftPanel(QWidget):
             self.set_status(f"Database loaded: {db_path}")
     
 
-    # def _on_select_db_clicked(self):
-    #         print("Select DB Clicked")
-    #         print("self =", self)
-    #         print("self.controller =", getattr(self, "controller", None))
-    #         if self.controller: 
-    #             print("controller is", self.controller)
-    #             self.controller.select_database()
+    def on_select_db_clicked(self):
+            print("Select DB Clicked")
+            print("self =", self)
+            print("self.controller =", getattr(self, "controller", None))
+            if self.controller: 
+                print("controller is", self.controller)
+                self.controller.select_database()
 
     def _on_new_db_clicked(self):
         print("New DB Clicked")
@@ -197,9 +204,29 @@ class LeftPanel(QWidget):
         print("[STATUS]", msg)
 
     # Select Database
-    def _on_select_db_clicked(self):
-        self.controller.select_database
     
-    def bind_controller(self, controller, last_db=None):
-        self.controller = controller
-        self.connect_signals()   # 一起做信号绑定
+    
+    #Refresh Sample tables
+    def refresh_sample_table(self):
+        """
+        清空并重新填充样品数据表。
+        """
+        # 1. 清空表
+        self.sample_table.setRowCount(0)
+
+        # 2. 获取所有样品数据（建议调用 model.get_sample_overview()）
+        if not self.controller:
+            return
+        try:
+            sample_list = self.controller.model.get_sample_overview()
+        except Exception as e:
+            self.set_status(f"载入样品列表失败: {e}")
+            return
+
+        # 3. 填充表格
+        for row_idx, row_data in enumerate(sample_list):
+            self.sample_table.insertRow(row_idx)
+            for col_idx, value in enumerate(row_data):
+                item = QTableWidgetItem(str(value) if value is not None else "")
+                self.sample_table.setItem(row_idx, col_idx, item)
+        self.count_label.setText(f"Samples: {len(sample_list)}")

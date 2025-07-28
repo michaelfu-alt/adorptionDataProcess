@@ -1,6 +1,9 @@
 import sqlite3
 import os
 import shutil
+import json
+
+
 class DatabaseModel:
     def __init__(self, db_path="adsorption.db"):
         self.db_path = db_path
@@ -96,13 +99,97 @@ class DatabaseModel:
         """)
         self.conn.commit()
 
+    def get_sample_overview(self):
+        """
+        Returns list of tuples:
+        (name, sample_meta, probe, bet, vol, pore0_0.5, pore2_5, analysis_date, date_logged)
+        """
+        c = self.conn.cursor()
+        c.execute("SELECT id, name FROM samples ORDER BY name")
+        overview = []
+
+        for sid, name in c.fetchall():
+            # sample_meta
+            c.execute(
+                "SELECT field_value FROM sample_info WHERE sample_id=? AND field_name LIKE ?",
+                (sid, "%样品名称%")
+            )
+            row = c.fetchone()
+            sample_meta = row[0] if row and row[0] is not None else ""
+
+            # probe
+            c.execute(
+                "SELECT field_value FROM sample_info WHERE sample_id=? AND field_name LIKE ?",
+                (sid, "%吸附质%")
+            )
+            row = c.fetchone()
+            probe = row[0] if row and row[0] is not None else ""
+
+            # BET surface
+            c.execute(
+                "SELECT result_value FROM sample_results WHERE sample_id=? AND result_name LIKE ?",
+                (sid, "%BET比表面积%")
+            )
+            row = c.fetchone()
+            bet = row[0] if row and row[0] is not None else ""
+
+            # pore volume
+            c.execute(
+                "SELECT result_value FROM sample_results WHERE sample_id=? AND result_name LIKE ?",
+                (sid, "%总孔体积%")
+            )
+            row = c.fetchone()
+            vol = row[0] if row and row[0] is not None else ""
+
+            # DFT percentages by explicit range labels
+            pr_0_0_5   = self.get_percentage_for_range(sid, "0~0.5")
+            pr_0_5_0_7 = self.get_percentage_for_range(sid, "0.5~0.7")
+            pr_0_7_1   = self.get_percentage_for_range(sid, "0.7~1")
+            pr_1_2     = self.get_percentage_for_range(sid, "1~2")
+            pr_2_5     = self.get_percentage_for_range(sid, "2~5")
+            pr_5_10    = self.get_percentage_for_range(sid, "5~10")
+            pr_10_inf  = self.get_percentage_for_range(sid, "10~Inf")
+
+            # analysis date
+            c.execute(
+                "SELECT field_value FROM sample_info WHERE sample_id=? AND field_name LIKE ?",
+                (sid, "%完成分析时间%")
+            )
+            row = c.fetchone()
+            raw = row[0] if row and row[0] is not None else ""
+            analysis_date = raw.split()[0] if raw else ""
+
+            # date logged
+            c.execute(
+                "SELECT field_value FROM sample_info WHERE sample_id=? AND field_name LIKE ?",
+                (sid, "%Date Logged%")
+            )
+            row = c.fetchone()
+            date_logged = row[0] if row and row[0] is not None else ""
+
+            overview.append((name, sample_meta, probe, bet, vol, pr_0_0_5, pr_0_5_0_7, pr_0_7_1, pr_1_2, pr_2_5, pr_5_10, pr_10_inf, analysis_date, date_logged))
+
+        return overview
 
 
-
-
-
-
-
+    def get_percentage_for_range(self, sample_id, range_label):
+        """
+        Look up the exact percentage for a given 'pore_range' label
+        from the dft_data JSON table.
+        """
+        c = self.conn.cursor()
+        c.execute(
+        "SELECT data_json FROM dft_data WHERE sample_id = ? ORDER BY row_index",
+        (sample_id,)
+        )
+        for (blob,) in c.fetchall():
+            rec = json.loads(blob)
+            if rec.get("pore_range") == range_label:
+                try:
+                    return float(rec.get("percentage", 0))
+                except:
+                    return 0
+        return 0
 
 
 
