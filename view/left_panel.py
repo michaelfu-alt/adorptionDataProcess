@@ -1,9 +1,10 @@
 # view/left_panel.py
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QLabel, QGroupBox,
-    QTableWidget, QTableWidgetItem, QMenu, QAbstractItemView, QFrame
+    QTableWidget, QMenu, QAbstractItemView, QFrame
 )
 from PySide6.QtCore import Qt, Signal
+import os
 
 class LeftPanel(QWidget):
     # 可定义自定义信号，例如
@@ -16,11 +17,21 @@ class LeftPanel(QWidget):
         layout.setContentsMargins(6,6,6,6)
         layout.setSpacing(8)
 
+        self.db_combo = QComboBox()
+        self.db_combo.setEditable(True)
+
+        # db_data = load_db_history()
+        # last_db = db_data.get("last", "")
+        # if last_db:
+        #     self.controller.select_database(last_db)
+
+
         # Database 操作区
         db_group = QGroupBox("Database")
         db_layout = QHBoxLayout()
         self.db_combo = QComboBox()
-        self.db_combo.setEditable(True)
+        self.db_combo.setEditable(False)
+        self.db_combo.setEnabled(False) 
         db_layout.addWidget(self.db_combo, 4)
         self.btn_select_db = QPushButton("Select DB")
         self.btn_new_db = QPushButton("New DB")
@@ -34,15 +45,12 @@ class LeftPanel(QWidget):
         layout.addWidget(db_group)
 
         # 信号连接
-        # self.btn_select_db.clicked.connect(self.controller.select_database)
-        # self.btn_new_db.clicked.connect(self.controller.create_database)
-        # self.btn_backup_db.clicked.connect(self.controller.backup_database)
-        # self.btn_delete_db.clicked.connect(self.controller.delete_database)
+       
         # self.db_combo.currentIndexChanged.connect(self.on_db_combo_changed)
-        self.btn_select_db.clicked.connect(self._on_select_db_clicked)
-        self.btn_new_db.clicked.connect(self._on_new_db_clicked)
-        self.btn_backup_db.clicked.connect(self._on_backup_db_clicked)
-        self.btn_delete_db.clicked.connect(self._on_delete_db_clicked)
+        # self.btn_select_db.clicked.connect(self._on_select_db_clicked)
+        # self.btn_new_db.clicked.connect(self._on_new_db_clicked)
+        # self.btn_backup_db.clicked.connect(self._on_backup_db_clicked)
+        # self.btn_delete_db.clicked.connect(self._on_delete_db_clicked)
 
         # 控制按钮区
         ctrl_layout = QHBoxLayout()
@@ -50,6 +58,7 @@ class LeftPanel(QWidget):
         self.btn_load_folder = QPushButton("Load File Folder")
         self.btn_load_files = QPushButton("Load Files")
         self.btn_load_files.clicked.connect(self.on_load_files_btn_clicked)
+
 
         self.btn_dft_analysis = QPushButton("DFT Analysis")
         self.btn_save_db = QPushButton("Save DB")
@@ -63,7 +72,6 @@ class LeftPanel(QWidget):
 
         
         # 信号连接
-        self.btn_load_files.clicked.connect(self.on_load_files_btn_clicked)
       
         # 样品数据表（Table）
         self.sample_table = QTableWidget(0, 14)
@@ -114,12 +122,36 @@ class LeftPanel(QWidget):
 
         self.setLayout(layout)
 
+    def connect_signals(self):
+        # controller赋值后，单独调用此函数进行信号绑定
+        # self.db_combo.currentIndexChanged.connect(self.on_db_combo_changed)
+        self.btn_select_db.clicked.connect(lambda: self.controller.select_database())
+        self.btn_new_db.clicked.connect(self.controller.create_database)
+        self.btn_backup_db.clicked.connect(self.controller.backup_database)
+        self.btn_delete_db.clicked.connect(self.controller.delete_database)
 
-    def update_db_combo(self, new_path):
-        exist = [self.db_combo.itemText(i) for i in range(self.db_combo.count())]
-        if new_path not in exist:
-            self.db_combo.addItem(new_path)
-        self.db_combo.setCurrentText(new_path)
+
+    def update_db_combo(self, full_path):
+        """在 combo 中显示文件名，但存储全路径"""
+        filename = os.path.basename(full_path)
+        # 检查是否已存在（避免重复）
+        filename = os.path.basename(full_path)
+        self.db_combo.clear()
+        self.db_combo.addItem(filename, userData=full_path)
+        self.db_combo.setCurrentIndex(0)
+    
+    def on_db_combo_changed(self, index):
+        if index < 0:
+            return
+
+        db_path = self.db_combo.itemData(index)
+        if not db_path or not os.path.exists(db_path):
+            print("[WARN] Invalid DB path selected:", db_path)
+            return  # 不调用 controller
+        print(f"[INFO] ComboBox changed to: {db_path}")
+        if self.controller:
+            self.controller.select_database(db_path)
+            self.set_status(f"Database loaded: {os.path.basename(db_path)}")
 
     def clear_db_combo(self):
         self.db_combo.clear()
@@ -128,19 +160,20 @@ class LeftPanel(QWidget):
         self.status_label.setText(msg)
 
     def on_db_combo_changed(self, index):
-        path = self.db_combo.currentText()
-        if path:
-            self.controller.model.open_database(path)
-            self.set_status(f"Database loaded: {path}")
+        db_path = self.db_combo.currentText()
+        if self.controller:
+            # 这里做防御式处理，保证 "" 不传下去
+            self.controller.select_database(index or None)
+            self.set_status(f"Database loaded: {db_path}")
     
 
-    def _on_select_db_clicked(self):
-            print("Select DB Clicked")
-            print("self =", self)
-            print("self.controller =", getattr(self, "controller", None))
-            if self.controller: 
-                print("controller is", self.controller)
-                self.controller.select_database()
+    # def _on_select_db_clicked(self):
+    #         print("Select DB Clicked")
+    #         print("self =", self)
+    #         print("self.controller =", getattr(self, "controller", None))
+    #         if self.controller: 
+    #             print("controller is", self.controller)
+    #             self.controller.select_database()
 
     def _on_new_db_clicked(self):
         print("New DB Clicked")
@@ -159,3 +192,14 @@ class LeftPanel(QWidget):
         if self.controller:
             print("controller is", self.controller)
             self.controller.load_files()
+    
+    def set_status(self, msg):
+        print("[STATUS]", msg)
+
+    # Select Database
+    def _on_select_db_clicked(self):
+        self.controller.select_database
+    
+    def bind_controller(self, controller, last_db=None):
+        self.controller = controller
+        self.connect_signals()   # 一起做信号绑定

@@ -6,5 +6,8 @@
 		{
 			"path": "../Norber_wizards_v15"
 		}
-	]
+	],
+	"settings": {
+		"git.ignoreLimitWarning": true
+	}
 }

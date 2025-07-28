@@ -43,9 +43,9 @@ class MainController:
         print("MainController.load_files called")
         self.import_export_manager.load_files()
     
-    def select_database(self):
-        print("MainController.select_database called")
-        self.db_manager.select_database()
+    def select_database(self, db_path=None):
+        print(f"MainController.select_database called, db_path={db_path}")
+        self.db_manager.select_database(db_path)
 
     def create_database(self):
         print("MainController.create_database called")
@@ -57,4 +57,4 @@ class MainController:
     
     def delete_database(self):
         print("MainController.delete_database called")
-        self.db_manager.backup_database()
+        self.db_manager.delete_database()
