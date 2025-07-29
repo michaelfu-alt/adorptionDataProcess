@@ -17,9 +17,6 @@ class LeftPanel(QWidget):
         layout.setContentsMargins(6,6,6,6)
         layout.setSpacing(8)
 
-        self.db_combo = QComboBox()
-        self.db_combo.setEditable(True)
-
         # db_data = load_db_history()
         # last_db = db_data.get("last", "")
         # if last_db:
@@ -44,13 +41,6 @@ class LeftPanel(QWidget):
         db_group.setLayout(db_layout)
         layout.addWidget(db_group)
 
-        # 信号连接
-       
-        # self.db_combo.currentIndexChanged.connect(self.on_db_combo_changed)
-        # self.btn_select_db.clicked.connect(self._on_select_db_clicked)
-        # self.btn_new_db.clicked.connect(self._on_new_db_clicked)
-        # self.btn_backup_db.clicked.connect(self._on_backup_db_clicked)
-        # self.btn_delete_db.clicked.connect(self._on_delete_db_clicked)
 
         # 控制按钮区
         ctrl_layout = QHBoxLayout()
@@ -69,7 +59,6 @@ class LeftPanel(QWidget):
         ctrl_layout.addWidget(self.btn_save_db)
         layout.addLayout(ctrl_layout)
         
-
         
         # 信号连接
       
@@ -84,8 +73,6 @@ class LeftPanel(QWidget):
         self.sample_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.sample_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.sample_table.setContextMenuPolicy(Qt.CustomContextMenu)
-        # self.sample_table.cellClicked.connect(self.on_sample_table_clicked)
-        # self.sample_table.selectionModel().selectionChanged.connect(self.on_sample_selection_changed)
         layout.addWidget(self.sample_table, 10)
 
         # 操作区
@@ -123,22 +110,20 @@ class LeftPanel(QWidget):
         self.sample_menu.addAction("Play")
 
         self.setLayout(layout)
+        self.connect_signals()
 
     def connect_signals(self):
         # controller赋值后，单独调用此函数进行信号绑定
         # self.db_combo.currentIndexChanged.connect(self.on_db_combo_changed)
+        print("Connecting signals!")
         self.btn_select_db.clicked.connect(self.on_select_db_clicked)
-        self.btn_new_db.clicked.connect(self.controller.create_database)
-        self.btn_backup_db.clicked.connect(self.controller.backup_database)
-        self.btn_delete_db.clicked.connect(self.controller.delete_database)
+        self.btn_new_db.clicked.connect(self._on_new_db_clicked)
+        self.btn_backup_db.clicked.connect(self._on_backup_db_clicked)
+        self.btn_delete_db.clicked.connect(self._on_delete_db_clicked)
         self.sample_table.itemSelectionChanged.connect(self._on_sample_selected)
-
-        
-
 
     def bind_controller(self, controller, last_db=None):
         self.controller = controller
-        self.connect_signals()   # 一起做信号绑定
         if last_db:
             print(f"Auto-select last_db: {last_db}")
             self.controller.select_database(last_db)
@@ -152,32 +137,13 @@ class LeftPanel(QWidget):
         self.db_combo.addItem(filename, userData=full_path)
         self.db_combo.setCurrentIndex(0)
     
-    def on_db_combo_changed(self, index):
-        if index < 0:
-            return
-
-        db_path = self.db_combo.itemData(index)
-        if not db_path or not os.path.exists(db_path):
-            print("[WARN] Invalid DB path selected:", db_path)
-            return  # 不调用 controller
-        print(f"[INFO] ComboBox changed to: {db_path}")
-        if self.controller:
-            self.controller.select_database(db_path)
-            self.set_status(f"Database loaded: {os.path.basename(db_path)}")
+   
 
     def clear_db_combo(self):
         self.db_combo.clear()
 
     def set_status(self, msg):
         self.status_label.setText(msg)
-
-    def on_db_combo_changed(self, index):
-        db_path = self.db_combo.currentText()
-        if self.controller:
-            # 这里做防御式处理，保证 "" 不传下去
-            self.controller.select_database(index or None)
-            self.set_status(f"Database loaded: {db_path}")
-    
 
     def on_select_db_clicked(self):
             print("Select DB Clicked")
@@ -207,9 +173,6 @@ class LeftPanel(QWidget):
     
     def set_status(self, msg):
         print("[STATUS]", msg)
-
-    # Select Database
-    
     
     #Refresh Sample tables
     def refresh_sample_table(self):

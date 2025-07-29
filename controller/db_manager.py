@@ -10,26 +10,22 @@ class DBManager:
 
     def select_database(self, db_name=None):
         if db_name is None:
-            # 只有按钮调用才弹出文件选择
             file_path, _ = QFileDialog.getOpenFileName(
                 self.view, "选择SQLite数据库", "", "SQLite DB (*.db *.sqlite);;所有文件 (*)"
             )
             db_name = file_path
             if not db_name:
                 return  # 用户取消选择
-        # 此时 db_name 一定是全路径
+
         print("Connecting to", db_name)
         try:
             self.model.connect_database(db_name)
-            self._update_db_history(db_name)
             self.view.left_panel.set_status(f"Database loaded: {os.path.basename(db_name)}")
-            self._update_db_history(db_name)   # 数据库路径存储
+            self._update_db_history(db_name)   # 数据库路径存储，只调一次
             print("[DEBUG] DB history saved:", db_name)
-
-            # ... 刷新相关内容
+            self.view.left_panel.refresh_sample_table()  # 只在成功时刷新
         except Exception as e:
             self.view.left_panel.set_status(f"数据库连接失败: {e}")
-        self.view.left_panel.refresh_sample_table()
         
 
 
