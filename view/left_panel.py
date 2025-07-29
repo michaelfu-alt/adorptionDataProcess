@@ -84,6 +84,8 @@ class LeftPanel(QWidget):
         self.sample_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.sample_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.sample_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        # self.sample_table.cellClicked.connect(self.on_sample_table_clicked)
+        # self.sample_table.selectionModel().selectionChanged.connect(self.on_sample_selection_changed)
         layout.addWidget(self.sample_table, 10)
 
         # 操作区
@@ -129,6 +131,9 @@ class LeftPanel(QWidget):
         self.btn_new_db.clicked.connect(self.controller.create_database)
         self.btn_backup_db.clicked.connect(self.controller.backup_database)
         self.btn_delete_db.clicked.connect(self.controller.delete_database)
+        self.sample_table.itemSelectionChanged.connect(self._on_sample_selected)
+
+        
 
 
     def bind_controller(self, controller, last_db=None):
@@ -230,3 +235,23 @@ class LeftPanel(QWidget):
                 item = QTableWidgetItem(str(value) if value is not None else "")
                 self.sample_table.setItem(row_idx, col_idx, item)
         self.count_label.setText(f"Samples: {len(sample_list)}")
+    
+    def _on_sample_selected(self):
+        items = self.sample_table.selectedItems()
+        if not items:
+            return
+        # 第一列通常为 sample_name
+        row = items[0].row()
+        sample_name = self.sample_table.item(row, 0).text()  # 假设第一列为样品名
+        if self.controller:
+            self.controller.on_sample_selected(sample_name)
+
+    def on_sample_selection_changed(self, selected, deselected):
+        indexes = self.sample_table.selectedIndexes()
+        if not indexes:
+            return
+        row = indexes[0].row()
+        sample_name = self.sample_table.item(row, 1).text()
+        print(f"[LeftPanel] User selected row {row}: sample_name={sample_name}")
+        if self.controller:
+            self.controller.on_sample_selected(sample_name)

@@ -191,11 +191,81 @@ class DatabaseModel:
                     return 0
         return 0
 
+    def get_sample_info(self, sample_name):
+        """
+        Return the sample_info fields for a given sample as a dict.
+        """
+        c = self.conn.cursor()
+        c.execute("SELECT id FROM samples WHERE name = ?", (sample_name,))
+        row = c.fetchone()
+        if not row:
+            return {}
+        sid = row[0]
+        c.execute("SELECT field_name, field_value FROM sample_info WHERE sample_id = ?", (sid,))
+        return {r[0]: r[1] for r in c.fetchall()}
 
+    def get_sample_results(self, sample_name):
+        """
+        Return the sample_results fields for a given sample as a dict.
+        """
+        c = self.conn.cursor()
+        c.execute("SELECT id FROM samples WHERE name = ?", (sample_name,))
+        row = c.fetchone()
+        if not row:
+            return {}
+        sid = row[0]
+        c.execute("SELECT result_name, result_value FROM sample_results WHERE sample_id = ?", (sid,))
+        return {r[0]: r[1] for r in c.fetchall()}
 
+    def get_adsorption_data(self, sample_name):
+        """
+        Return two lists of (q, value) for adsorption and desorption.
+        """
+        c = self.conn.cursor()
+        c.execute("SELECT id FROM samples WHERE name = ?", (sample_name,))
+        row = c.fetchone()
+        if not row:
+            return [], []
+        sid = row[0]
+        c.execute("SELECT q, i_ads, i_des FROM adsorption_data WHERE sample_id = ? ORDER BY q", (sid,))
+        ads, des = [], []
+        for q, i_ads, i_des in c.fetchall():
+            if i_ads is not None:
+                ads.append((q, i_ads))
+            if i_des is not None:
+                des.append((q, i_des))
+        return ads, des
 
+    def get_pore_distribution(self, sample_name):
+        """
+        Return the pore_distribution rows as a list of (pore_size, distribution).
+        """
+        c = self.conn.cursor()
+        c.execute("SELECT id FROM samples WHERE name = ?", (sample_name,))
+        row = c.fetchone()
+        if not row:
+            return []
+        sid = row[0]
+        c.execute(
+            "SELECT pore_size, distribution FROM pore_distribution "
+            "WHERE sample_id = ? ORDER BY pore_size",
+            (sid,)
+        )
+        return c.fetchall()
 
-
+    def get_dft_data(self, sample_name):
+        """
+        Return the raw DFT rows JSON for a given sample as a list of dicts.
+        """
+        c = self.conn.cursor()
+        c.execute("SELECT id FROM samples WHERE name = ?", (sample_name,))
+        row = c.fetchone()
+        if not row:
+            return []
+        sid = row[0]
+        c.execute("SELECT data_json FROM dft_data WHERE sample_id = ? ORDER BY row_index", (sid,))
+        rows = c.fetchall()
+        return [json.loads(r[0]) for r in rows]
 
 
 

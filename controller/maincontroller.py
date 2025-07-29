@@ -12,8 +12,13 @@ class MainController:
         self.model = model
         self.view = view
 
+        self.right_panel = view.right_panel
+
         # 具体功能分模块
-        self.sample_manager = SampleManager(self)
+        self.sample_manager = SampleManager(self.model)
+        #监听左表选中
+        self.view.left_panel.sample_table.itemSelectionChanged.connect(self.on_sample_selected)
+
         self.db_manager = DBManager(self.model, self.view)
         self.import_export_manager = ImportExportManager(model, view)
         # self.batch_tools = BatchTools(self)
@@ -58,3 +63,12 @@ class MainController:
     def delete_database(self):
         print("MainController.delete_database called")
         self.db_manager.delete_database()
+    
+    def on_sample_selected(self, sample_name):
+        details = self.sample_manager.get_all_sample_details(sample_name)
+        # print("[Controller] Send to right_panel info:", details["info"])
+        # print("[Controller] Send to right_panel results:", details["results"])
+        # 关键：更新 right_panel！
+        self.view.right_panel.update_sample_details(details["info"], details["results"])
+        self.view.right_panel.update_adsorption_data(details["ads"], details["des"])
+        self.view.right_panel.update_psd_data(details["psd"])
