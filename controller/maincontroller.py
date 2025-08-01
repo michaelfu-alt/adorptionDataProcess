@@ -75,3 +75,10 @@ class MainController:
         self.view.right_panel.update_sample_details(details["info"], details["results"])
         self.view.right_panel.update_adsorption_data(details["ads"], details["des"])
         self.view.right_panel.update_psd_data(details["psd"])
+    
+    # Delete sample info
+    def delete_sample_info(self, sample_names):
+        self.sample_manager.delete_samples(sample_names)
+        self.left_panel.refresh_table()
+        self.right_panel.clear()
+        self.left_panel.set_status("已删除选中样品")

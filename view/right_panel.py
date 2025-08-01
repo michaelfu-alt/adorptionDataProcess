@@ -226,3 +226,10 @@ class RightPanel(QWidget):
         self.ax_psd.set_xlabel("Diameter (nm)")
         self.ax_psd.set_ylabel("PSD (total)")
         self.psd_canvas.draw()
+    
+    # Delete Sample
+    def clear(self):
+        """清空所有显示内容"""
+        self.update_sample_details({}, {})  # 传空字典，详情区也就空了
+        self.update_adsorption_data([], []) # 传空
+        self.update_psd_data([])           # 传空

@@ -67,3 +67,8 @@ class SampleManager:
 
     def save_sample_info(self, sample_name, updated_info):
         self.model.update_sample_info(sample_name, updated_info)
+
+    #Delete Sample
+    def delete_samples(self, sample_names):
+        for name in sample_names:
+            self.model.delete_sample(name)

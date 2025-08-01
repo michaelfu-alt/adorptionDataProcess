@@ -124,6 +124,8 @@ class LeftPanel(QWidget):
 
         # Sample Edit Delete Find Duplicate
         self.btn_edit.clicked.connect(self._on_edit_clicked)
+        self.btn_delete.clicked.connect(self._on_delete_clicked)
+
 
     def bind_controller(self, controller, last_db=None):
         self.controller = controller
@@ -272,3 +274,22 @@ class LeftPanel(QWidget):
         # 5. 可选：自适应列宽
         self.sample_table.resizeColumnsToContents()
         print("[DEBUG] 样品表刷新完成。")
+    
+
+    # Delete Sample
+    def get_selected_sample_names(self):
+        rows = list(set(idx.row() for idx in self.sample_table.selectedIndexes()))
+        names = []
+        for row in rows:
+            name_item = self.sample_table.item(row, 0)  # 假设样品名在第0列
+            if name_item:
+                names.append(name_item.text())
+        return names
+
+
+    def _on_delete_clicked(self):
+        selected = self.get_selected_sample_names()
+        if not selected:
+            self.set_status("请选择要删除的样品")
+            return
+        self.controller.delete_sample_info(selected)
