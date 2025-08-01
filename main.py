@@ -11,7 +11,11 @@ if __name__ == "__main__":
     model = DatabaseModel()
     main_view = MainView(controller=None)  # 先传 None
     main_controller = MainController(model, main_view)
+    main_view.controller = main_controller  # ★关键补充这句
 
+    # 如有 left_panel/right_panel
+    main_view.left_panel.controller = main_controller
+    main_view.right_panel.controller = main_controller
 
     # 加载上次数据库
     db_history = load_db_history()

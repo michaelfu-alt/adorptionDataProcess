@@ -1,7 +1,7 @@
 # view/left_panel.py
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QLabel, QGroupBox,
-    QTableWidget, QTableWidgetItem, QMenu, QAbstractItemView, QFrame
+    QTableWidget, QTableWidgetItem, QMenu, QAbstractItemView, QFrame, QMessageBox
 )
 from PySide6.QtCore import Qt, Signal
 import os
@@ -122,6 +122,9 @@ class LeftPanel(QWidget):
         self.btn_delete_db.clicked.connect(self._on_delete_db_clicked)
         self.sample_table.itemSelectionChanged.connect(self._on_sample_selected)
 
+        # Sample Edit Delete Find Duplicate
+        self.btn_edit.clicked.connect(self._on_edit_clicked)
+
     def bind_controller(self, controller, last_db=None):
         self.controller = controller
         if last_db:
@@ -206,6 +209,7 @@ class LeftPanel(QWidget):
         # 第一列通常为 sample_name
         row = items[0].row()
         sample_name = self.sample_table.item(row, 0).text()  # 假设第一列为样品名
+        print(f"Left panel selected {sample_name}")
         if self.controller:
             self.controller.on_sample_selected(sample_name)
 
@@ -215,6 +219,56 @@ class LeftPanel(QWidget):
             return
         row = indexes[0].row()
         sample_name = self.sample_table.item(row, 1).text()
-        print(f"[LeftPanel] User selected row {row}: sample_name={sample_name}")
         if self.controller:
             self.controller.on_sample_selected(sample_name)
+    
+    def _on_edit_clicked(self):
+        items = self.sample_table.selectedItems()
+        if not items:
+            return
+        # 第一列通常为 sample_name
+        row = items[0].row()
+        sample_name = self.sample_table.item(row, 0).text()  # 假设第一列为样品名
+        print(f"Left panel selected {sample_name}")
+        if self.controller:
+            self.controller.edit_sample_info(sample_name)
+
+    def refresh_table(self):
+        """
+        刷新左侧样品数据表，从数据库拉取最新数据并填充表格。
+        """
+        print("[DEBUG] 正在刷新样品数据表 ...")
+        # 1. 清空所有数据行
+        self.sample_table.setRowCount(0)
+        if not self.controller:
+            return
+        # 2. 获取数据库最新样品数据
+        if not self.controller:
+            print("[ERROR] Controller 未初始化，无法刷新表格！")
+            return
+        try:
+            sample_list = self.controller.model.get_sample_overview()  # [(col1, col2, ...), ...]
+        except Exception as e:
+            self.set_status(f"载入样品列表失败: {e}")
+            print("[ERROR] 载入样品失败:", e)
+            return
+
+        print("[DEBUG] 获取到样品数据条数:", len(sample_list))
+        # 3. 填充表格
+        print("[DEBUG] sample_list from model.get_sample_overview():")
+        for i, row_data in enumerate(sample_list):
+            print(f"Row {i}: {row_data}")
+
+        for row_idx, row_data in enumerate(sample_list):
+            self.sample_table.insertRow(row_idx)
+            for col_idx, value in enumerate(row_data):
+                # 支持 None/空值
+                item = QTableWidgetItem(str(value) if value is not None else "")
+                self.sample_table.setItem(row_idx, col_idx, item)
+
+        # 4. 更新底部样品数显示
+        self.count_label.setText(f"Samples: {len(sample_list)}")
+
+        # 5. 可选：自适应列宽
+        self.sample_table.resizeColumnsToContents()
+        print("[DEBUG] 样品表刷新完成。")

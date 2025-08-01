@@ -12,11 +12,12 @@ class DatabaseModel:
             self.connect_database(db_path)
 
     def connect_database(self, db_path):
-        """连接数据库（已存在）"""
+        if self.conn:
+            self.conn.close()
         self.db_path = db_path
         self.conn = sqlite3.connect(self.db_path)
-        print(f"[SQLite] Connected to DB: {db_path}")
-        self._ensure_tables()
+        print(f"[SQLite] Switched to DB: {db_path}")
+        self._ensure_tables()  # 如需建表
 
     def create_new_database(self, db_path):
         """创建新库并连接"""
@@ -42,7 +43,7 @@ class DatabaseModel:
             self.conn = None
         if self.db_path and os.path.exists(self.db_path):
             os.remove(self.db_path)
-            self.db_path = None
+        self.db_path = None
 
 
             
@@ -61,6 +62,7 @@ class DatabaseModel:
                 sample_id INTEGER,
                 field_name TEXT,
                 field_value TEXT,
+                PRIMARY KEY(sample_id, field_name),
                 FOREIGN KEY(sample_id) REFERENCES samples(id)
             )
         """)
@@ -268,8 +270,38 @@ class DatabaseModel:
         return [json.loads(r[0]) for r in rows]
 
 
+    #Edit Sample info
+    def get_edit_sample_info(self, sample_name):
+        
+        info = self.get_sample_info(sample_name)
+        if not info:
+            print(f"[Warning] No info for sample: {sample_name}")
+            return {}  # 返回空dict
+        return info
+    
+    def update_sample_info(self, sample_name, new_info):
+        print("[DEBUG] 正在写入 db_path:", self.db_path, "conn id:", id(self.conn))
+        print("[DEBUG] update_sample_info:", sample_name, new_info)
 
+        c = self.conn.cursor()
+        # 查找样品ID
+        c.execute("SELECT id FROM samples WHERE name = ?", (sample_name,))
+        row = c.fetchone()
+        if not row:
+            print(f"[ERROR] 未找到样品: {sample_name}，数据库未更新！")
+            return
+        sample_id = row[0]
+        print(f"[DEBUG] 样品ID: {sample_id}")
 
+        # 对每个字段进行更新（推荐用 REPLACE，确保唯一性）
+        for field, value in new_info.items():
+            c.execute(
+                "INSERT OR REPLACE INTO sample_info(sample_id, field_name, field_value) VALUES (?, ?, ?)",
+                (sample_id, field, str(value))
+            )
+        self.conn.commit()
+        print("[DEBUG] 保存后 sample_info：", c.fetchall())
+        print(f"{sample_name} is updated")
 
 
 

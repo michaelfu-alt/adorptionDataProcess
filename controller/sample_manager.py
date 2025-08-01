@@ -25,6 +25,8 @@
 # •	迁移过程中只需要将 self.model, self.view 替换为 self.controller.model/self.controller.view。
 # •	若涉及到其它 manager 之间的协作，可在 manager 的 __init__ 里保存 main_controller 的引用。
 from model.database_model import DatabaseModel
+from view.dialog_window import EditSampleDialog
+from PySide6.QtWidgets import QDialog
 
 class SampleManager:
     def __init__(self, model):
@@ -36,7 +38,7 @@ class SampleManager:
         self._copied_db_path = None
 
     def get_all_sample_details(self, sample_name):
-        # print("[SampleManager] get_all_sample_details, sample_name:", sample_name)
+        print("[SampleManager] get_all_sample_details, sample_name:", sample_name)
 
         info = self.model.get_sample_info(sample_name)
         results = self.model.get_sample_results(sample_name)
@@ -52,4 +54,16 @@ class SampleManager:
             "psd": psd_rows
         }
     
-    
+    # Edit Sample info
+    def get_edit_sample_info(self, sample_name):
+        info = self.model.get_edit_sample_info(sample_name)
+        return info
+        
+    def open_edit_dialog(self, sample_name, info, save_callback):
+        dlg = EditSampleDialog(sample_name, info)
+        if dlg.exec() == QDialog.Accepted:
+            new_info = dlg.get_data()
+            save_callback(sample_name, new_info)
+
+    def save_sample_info(self, sample_name, updated_info):
+        self.model.update_sample_info(sample_name, updated_info)
