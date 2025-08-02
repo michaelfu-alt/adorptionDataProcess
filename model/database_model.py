@@ -2,7 +2,7 @@ import sqlite3
 import os
 import shutil
 import json
-
+from datetime import datetime
 
 class DatabaseModel:
     def __init__(self, db_path="adsorption.db"):
@@ -324,3 +324,91 @@ class DatabaseModel:
         c.execute("DELETE FROM samples WHERE id = ?", (sample_id,))
         self.conn.commit()
         return True
+    
+    # Colone Sample
+    def clone_sample(self, old_name):
+        """
+        Create a brand‐new sample in this same database by copying EVERYTHING
+        (metadata, results, adsorption/desorption, DFT‐rows, pore_distribution)
+        from an existing sample named old_name.  Returns the new sample_name used.
+        """
+        # 1) Retrieve old sample’s ID
+        c = self.conn.cursor()
+        c.execute("SELECT id FROM samples WHERE name = ?", (old_name,))
+        row = c.fetchone()
+        if not row:
+            raise ValueError(f"No such sample to clone: '{old_name}'")
+        old_sid = row[0]
+
+        # 2) Read **all** data out of the old sample
+        # – sample_info
+        c.execute("SELECT field_name, field_value FROM sample_info WHERE sample_id = ?", (old_sid,))
+        info = {r[0]: r[1] for r in c.fetchall()}
+
+        # – sample_results
+        c.execute("SELECT result_name, result_value FROM sample_results WHERE sample_id = ?", (old_sid,))
+        results = {r[0]: r[1] for r in c.fetchall()}
+
+        # – adsorption_data
+        c.execute("SELECT q, i_ads, i_des FROM adsorption_data WHERE sample_id = ? ORDER BY q", (old_sid,))
+        ads_list = []
+        des_list = []
+        for q, i_ads, i_des in c.fetchall():
+            if i_ads is not None:
+                ads_list.append((q, i_ads))
+            if i_des is not None:
+                des_list.append((q, i_des))
+
+        # – raw DFT JSON rows
+        c.execute("SELECT data_json FROM dft_data WHERE sample_id = ? ORDER BY row_index", (old_sid,))
+        dft_list = [json.loads(r[0]) for r in c.fetchall()]
+
+        # 3) Choose a brand‐new unique name based on old_name
+        base = old_name
+        name = base
+        idx = 1
+        c.execute("SELECT COUNT(*) FROM samples WHERE name = ?", (name,))
+        while c.fetchone()[0] > 0:
+            name = f"{base}_{idx}"
+            idx += 1
+            c.execute("SELECT COUNT(*) FROM samples WHERE name = ?", (name,))
+
+        # 4) Insert new row into samples
+        new_sid = self._get_or_create_sample(name)
+
+        # 5) Insert a fresh “Date Logged” timestamp
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self._insert_field(new_sid, "Date Logged", ts)
+
+        # 6) Re‐insert metadata & results
+        for k, v in info.items():
+            self._insert_field(new_sid, k, v)
+        for k, v in results.items():
+            self._insert_result(new_sid, k, v)
+
+        # 7) Re‐insert adsorption/desorption
+        qvals = sorted({q for q, _ in ads_list} | {q for q, _ in des_list})
+        for q in qvals:
+            va = next((x for p, x in ads_list if p == q), None)
+            vd = next((x for p, x in des_list if p == q), None)
+            self._insert_data_point(new_sid, q, va, vd)
+
+        # 8) Re‐insert raw DFT rows JSON & rebuild pore_distribution
+        self._ingest_dft_list(new_sid, dft_list)
+        self._ingest_pore_distribution_from_dft(new_sid, dft_list)
+
+        # 9) Commit & return the new sample name
+        self.conn.commit()
+        return name
+    
+    def _get_or_create_sample(self, name: str) -> int:
+        c = self.conn.cursor()
+        c.execute("SELECT id FROM samples WHERE name = ?", (name,))
+        row = c.fetchone()
+        if row:
+            return row[0]  # 返回已有样品ID
+
+        # 不存在则插入新样品
+        c.execute("INSERT INTO samples (name) VALUES (?)", (name,))
+        self.conn.commit()
+        return c.lastrowid

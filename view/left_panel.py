@@ -72,6 +72,8 @@ class LeftPanel(QWidget):
         ])
         self.sample_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.sample_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.sample_table.setSortingEnabled(True)
+        self.sample_table.sortItems(14, Qt.AscendingOrder)  # 按第1列升序排序
         self.sample_table.setContextMenuPolicy(Qt.CustomContextMenu)
         layout.addWidget(self.sample_table, 10)
 
@@ -125,7 +127,8 @@ class LeftPanel(QWidget):
         # Sample Edit Delete Find Duplicate
         self.btn_edit.clicked.connect(self._on_edit_clicked)
         self.btn_delete.clicked.connect(self._on_delete_clicked)
-
+        self.btn_find_duplicates.clicked.connect(self._on_find_duplicates_clicked)
+        self.sample_table.customContextMenuRequested.connect(self.show_context_menu)
 
     def bind_controller(self, controller, last_db=None):
         self.controller = controller
@@ -255,12 +258,7 @@ class LeftPanel(QWidget):
             print("[ERROR] 载入样品失败:", e)
             return
 
-        print("[DEBUG] 获取到样品数据条数:", len(sample_list))
         # 3. 填充表格
-        print("[DEBUG] sample_list from model.get_sample_overview():")
-        for i, row_data in enumerate(sample_list):
-            print(f"Row {i}: {row_data}")
-
         for row_idx, row_data in enumerate(sample_list):
             self.sample_table.insertRow(row_idx)
             for col_idx, value in enumerate(row_data):
@@ -293,3 +291,47 @@ class LeftPanel(QWidget):
             self.set_status("请选择要删除的样品")
             return
         self.controller.delete_sample_info(selected)
+    
+    # Find duplicate and delete
+    def _on_find_duplicates_clicked(self):
+        print("[View] Find Duplicates 按钮被点击，转给 Controller")
+        self.controller.find_duplicates()
+    
+    # Right click of context menu
+    def show_context_menu(self, pos):
+        indexes = self.sample_table.selectionModel().selectedRows()
+        if not indexes:
+            return  # no selection, do not show menu
+
+        menu = QMenu(self.sample_table)
+
+        copy_action = menu.addAction("Copy")
+        cut_action = menu.addAction("Cut")
+        paste_action = menu.addAction("Paste")
+        menu.addSeparator()
+        plot_action = menu.addAction("Plot")
+
+        action = menu.exec(self.sample_table.viewport().mapToGlobal(pos))
+        if action == copy_action:
+            self.controller.copy_samples()
+        elif action == cut_action:
+            self.controller.cut_samples()
+        elif action == paste_action:
+            self.controller.paste_samples()
+        elif action == plot_action:
+            self.controller.plot_samples()
+    
+    def get_selected_sample_names(self) -> list[str]:
+        selected_rows = self.sample_table.selectionModel().selectedRows()
+        names = []
+        for idx in selected_rows:
+            item = self.sample_table.item(idx.row(), 1)
+            if item:
+                names.append(item.text())
+        return names
+
+    def set_status(self, message: str):
+        if hasattr(self, "statusBar"):
+            self.statusBar().showMessage(message, 5000)
+        elif hasattr(self, "status_label"):
+            self.status_label.setText(message)
