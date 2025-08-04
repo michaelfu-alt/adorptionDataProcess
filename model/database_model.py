@@ -3,6 +3,7 @@ import os
 import shutil
 import json
 from datetime import datetime
+import pandas as pd
 
 class DatabaseModel:
     def __init__(self, db_path="adsorption.db"):
@@ -19,6 +20,13 @@ class DatabaseModel:
         print(f"[SQLite] Switched to DB: {db_path}")
         self._ensure_tables()  # 如需建表
 
+    def get_thread_connection(self):
+            return sqlite3.connect(self.db_path)
+
+    def get_main_thread_connection(self):
+        # 主线程用的连接，也可以是初始化时保存的self.conn
+        return sqlite3.connect(self.db_path)
+    
     def create_new_database(self, db_path):
         """创建新库并连接"""
         # 删除同名旧文件
@@ -412,3 +420,252 @@ class DatabaseModel:
         c.execute("INSERT INTO samples (name) VALUES (?)", (name,))
         self.conn.commit()
         return c.lastrowid
+    
+    # Load file
+
+    def get_thread_connection(self):
+        # Create a new connection for the current thread (worker thread)
+        return sqlite3.connect(self.db_path)
+    
+    def parse_excel(self, filepath):
+        """
+        Parse one merged Excel file and return:
+        sample_name, sample_info, result_summary,
+        ads_list, des_list, dft_list
+
+        - ads_list/des_list: lists of (pressure, volume)
+        - dft_list: list of dicts with keys:
+            'pore_range', 'percentage',
+            'Pore Diameter(nm)', 'PSD(total)'
+        """
+
+        if not os.path.isfile(filepath):
+            raise FileNotFoundError(f"No such file: {filepath}")
+
+        # Base name
+        sample_name = os.path.splitext(os.path.basename(filepath))[0]
+
+        # --- 1) Metadata & results from raw sheet ---
+        df0 = pd.read_excel(filepath, header=None)
+        sample_info = {}
+        for r in range(1,7):
+            k1, v1 = df0.iat[r,0], df0.iat[r,1]
+            k2, v2 = df0.iat[r,3], df0.iat[r,4]
+            if pd.notna(k1):
+                sample_info[str(k1).strip().rstrip('：')] = v1
+            if pd.notna(k2):
+                sample_info[str(k2).strip().rstrip('：')] = v2
+
+        result_summary = {}
+        for r in range(10,32):
+            k, v = df0.iat[r,0], df0.iat[r,1]
+            if pd.notna(k):
+                result_summary[str(k).strip().rstrip('：')] = v
+
+        # --- 2) Adsorption/Desorption from sheet0 with header row 10 ---
+        try:
+            df_iso = pd.read_excel(filepath, sheet_name=0, header=9)
+        except Exception as e:
+            raise RuntimeError(f"Failed to read isotherm sheet: {e}")
+
+        ads, des = [], []
+        if '吸附相对压力 P/Po' in df_iso.columns and '吸附体积 [cc/g]' in df_iso.columns:
+            for _, row in df_iso.iterrows():
+                p_raw, v_raw = row['吸附相对压力 P/Po'], row['吸附体积 [cc/g]']
+                if pd.notna(p_raw):
+                    p = pd.to_numeric(p_raw, errors="coerce")
+                    v = pd.to_numeric(v_raw, errors="coerce")
+                    ads.append((p, v))
+        if '解吸相对压力 P/Po' in df_iso.columns and '解吸体积 [cc/g]' in df_iso.columns:
+            for _, row in df_iso.iterrows():
+                p_raw, v_raw = row['解吸相对压力 P/Po'], row['解吸体积 [cc/g]']
+                if pd.notna(p_raw):
+                    p = pd.to_numeric(p_raw, errors="coerce")
+                    v = pd.to_numeric(v_raw, errors="coerce")
+                    des.append((p, v))
+
+        # --- 3) DFT result sheet parsing with dynamic header + safe coercion ---
+        dft_list = []
+        try:
+            raw = pd.read_excel(filepath, sheet_name="DFT result", header=None)
+            header_row = None
+            for idx in range(18, 21):
+                row_vals = raw.iloc[idx].astype(str).str.lower()
+                if row_vals.str.contains("pore range").any() and row_vals.str.contains("percentage").any():
+                    header_row = idx
+                    break
+
+            if header_row is not None:
+                df_dft = pd.read_excel(filepath, sheet_name="DFT result", header=header_row)
+                cols = [str(c).lower() for c in df_dft.columns]
+
+                def find_col(substr):
+                    return next((i for i,c in enumerate(cols) if substr in c), None)
+
+                pr_idx  = find_col("pore range")
+                pct_idx = find_col("percentage")
+                dia_idx = find_col("pore diameter")
+                psd_idx = find_col("psd")  # catches "PSD(total)"
+
+                if pr_idx is not None and pct_idx is not None:
+                    mask = ~df_dft.iloc[:, pr_idx].astype(str).str.lower().str.startswith("total")
+                    clean = df_dft.loc[mask].reset_index(drop=True)
+
+                    for _, row in clean.iterrows():
+                        pr_raw  = row.iloc[pr_idx]
+                        pct_raw = row.iloc[pct_idx]
+                        dia_raw = row.iloc[dia_idx] if dia_idx is not None else None
+                        psd_raw = row.iloc[psd_idx] if psd_idx is not None else None
+
+                        # pore_range as-is
+                        pore_range = pr_raw
+
+                        # percentage: coerce then default NaN→0
+                        percentage = pd.to_numeric(pct_raw, errors="coerce")
+                        if pd.isna(percentage):
+                            percentage = 0.0
+
+                        # diameter & PSD(total): coerce, leave NaN as None
+                        diameter = pd.to_numeric(dia_raw, errors="coerce") if dia_idx is not None else None
+                        if pd.isna(diameter):
+                            diameter = None
+
+                        psd_tot = pd.to_numeric(psd_raw, errors="coerce") if psd_idx is not None else None
+                        if pd.isna(psd_tot):
+                            psd_tot = None
+
+                        dft_list.append({
+                            "pore_range":        pore_range,
+                            "percentage":        percentage,
+                            "Pore Diameter(nm)": diameter,
+                            "PSD(total)":        psd_tot,
+                        })
+        except Exception:
+            dft_list = []
+
+        return sample_name, sample_info, result_summary, ads, des, dft_list
+
+
+    def ingest_excel(self, filepath, conn=None):
+        """
+        Full ingestion with optional connection parameter for thread safety.
+        """
+        if conn is None:
+            conn = self.conn
+
+        # 1) parse everything out of the Excel
+        base_name, info, results, ads, des, dft_list = self.parse_excel(filepath)
+
+        # 2) generate a unique sample name
+        c = conn.cursor()
+        name = base_name
+        idx = 1
+        c.execute("SELECT COUNT(*) FROM samples WHERE name = ?", (name,))
+        while c.fetchone()[0] > 0:
+            name = f"{base_name}_{idx}"
+            idx += 1
+            c.execute("SELECT COUNT(*) FROM samples WHERE name = ?", (name,))
+
+        # 3) create the new sample row
+        sid = self._get_or_create_sample(name, conn=conn)
+
+        # 4) Record ingestion timestamp
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self._insert_field(sid, "Date Logged", ts, conn=conn)
+
+        # 5) Insert sample_info & sample_results
+        for k, v in info.items():
+            self._insert_field(sid, k, str(v), conn=conn)
+        for k, v in results.items():
+            self._insert_result(sid, k, str(v), conn=conn)
+
+        # 6) Insert adsorption/desorption data
+        qvals = sorted({q for q, _ in ads} | {q for q, _ in des})
+        for q in qvals:
+            va = next((x for p, x in ads if p == q), None)
+            vd = next((x for p, x in des if p == q), None)
+            self._insert_data_point(sid, q, va, vd, conn=conn)
+
+        # 7) Insert DFT‐list JSON and pore_distribution
+        self._ingest_dft_list(sid, dft_list, conn=conn)
+        self._ingest_pore_distribution_from_dft(sid, dft_list, conn=conn)
+
+        # 8) Commit all changes
+        conn.commit()
+
+        return name
+
+
+    def _get_or_create_sample(self, name, conn=None):
+        if conn is None:
+            conn = self.conn
+        c = conn.cursor()
+        # 查询是否已有样品
+        c.execute("SELECT id FROM samples WHERE name = ?", (name,))
+        row = c.fetchone()
+        if row:
+            return row[0]
+        # 不存在则插入
+        c.execute("INSERT INTO samples(name) VALUES(?)", (name,))
+        conn.commit()
+        return c.lastrowid
+
+
+    def _insert_field(self, sample_id, field_name, field_value, conn=None):
+        if conn is None:
+            conn = self.conn
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO sample_info(sample_id, field_name, field_value) VALUES(?,?,?)",
+            (sample_id, field_name, field_value)
+        )
+
+
+    def _insert_result(self, sample_id, result_name, result_value, conn=None):
+        if conn is None:
+            conn = self.conn
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO sample_results(sample_id, result_name, result_value) VALUES(?,?,?)",
+            (sample_id, result_name, result_value)
+        )
+
+
+    def _insert_data_point(self, sample_id, q, i_ads, i_des, conn=None):
+        if conn is None:
+            conn = self.conn
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO adsorption_data(sample_id, q, i_ads, i_des) VALUES(?,?,?,?)",
+            (sample_id, q, i_ads, i_des)
+        )
+
+
+    def _ingest_dft_list(self, sample_id, dft_list, conn=None):
+        if conn is None:
+            conn = self.conn
+        c = conn.cursor()
+        c.execute("DELETE FROM dft_data WHERE sample_id=?", (sample_id,))
+        for idx, row in enumerate(dft_list):
+            c.execute(
+                "INSERT INTO dft_data(sample_id, row_index, data_json) VALUES(?,?,?)",
+                (sample_id, idx, json.dumps(row))
+            )
+
+    def _ingest_pore_distribution_from_dft(self, sample_id, dft_list, conn=None):
+        if conn is None:
+            conn = self.conn
+        c = conn.cursor()
+        c.execute("DELETE FROM pore_distribution WHERE sample_id=?", (sample_id,))
+        for row in dft_list:
+            pr = row.get("pore_range")
+            perc = row.get("percentage", 0)
+            try:
+                low, high = pr.split("~")
+                pore_size = (float(low) + float(high)) / 2.0
+            except Exception:
+                continue
+            c.execute(
+                "INSERT INTO pore_distribution(sample_id, pore_size, distribution) VALUES (?, ?, ?)",
+                (sample_id, pore_size, perc)
+            )

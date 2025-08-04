@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QMessageBox, QDialog, QApplication
 from controller.sample_manager import SampleManager
 from controller.db_manager import DBManager
 from controller.import_export import ImportExportManager
-from view.duplicate_sample_dialog import DuplicateDeleteDialog, DuplicateFieldDialog
+from view.duplicate_sample_dialog import DuplicateFieldDialog, DuplicateDeleteDialog
 import os
 import sqlite3
 # from controller.batch_tools import 
@@ -25,12 +25,10 @@ class MainController:
         # 具体功能分模块
         self.sample_manager = SampleManager(self.model)
         self.db_manager = DBManager(self.model, self.view)
-        self.import_export_manager = ImportExportManager(model, view)
-    
-    
-    def load_files(self):
-        print("MainController.load_files called")
-        self.import_export_manager.load_files()
+        # self.import_export_manager = ImportExportManager(model, view)
+        self.import_manager = ImportExportManager(model)
+        self.import_manager.import_error.connect(self.on_import_error)
+        self.import_manager.import_finished.connect(self.on_import_finished)
     
     def select_database(self, db_path=None):
         print(f"MainController.select_database called, db_path={db_path}")
@@ -108,7 +106,7 @@ class MainController:
                     to_delete.append(n)
 
         # 调用弹窗，弹窗支持预选 to_delete
-        dlg = DuplicateDeleteDialogWithPreselect(dup_groups, preselect=to_delete, parent=self.view)
+        dlg = DuplicateDeleteDialog(dup_groups, preselect=to_delete, parent=self.view)
         dlg.deleteConfirmed.connect(self._on_delete_duplicates)
         dlg.exec()
     
@@ -158,8 +156,9 @@ class MainController:
             new_name = self.sample_manager.paste_sample_data(sample_data)
             pasted.append(new_name)
         self._load_sample_list()
-        self.view.set_status(f"Pasted {len(pasted)} samples.")
         self.view.show_message(f"Pasted {len(pasted)} samples:\n" + "\n".join(pasted))
+        self.view.set_status(f"Pasted {len(pasted)} samples.")
+
 
     def _clone_sample_from_external_db(self, external_db_path, old_name):
         ext_conn = sqlite3.connect(external_db_path)
@@ -207,4 +206,14 @@ class MainController:
         self.copy_samples()
         self.delete_samples()  # 你已有删除逻辑
 
-    
+    # Import Excel Files
+    def start_import_files(self):
+        self.import_manager.start_import(self.view.left_panel)
+
+    def on_import_error(self):
+        # Show message box or log
+        pass
+
+    def on_import_finished(self, loaded_files):
+        self.view.left_panel.set_status(f"Import complete: {len(loaded_files)} files.")
+        self.view.left_panel.refresh_sample_table()

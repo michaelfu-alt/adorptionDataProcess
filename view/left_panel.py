@@ -47,7 +47,6 @@ class LeftPanel(QWidget):
         self.btn_merge_dft = QPushButton("Merge-DFT Files")
         self.btn_load_folder = QPushButton("Load File Folder")
         self.btn_load_files = QPushButton("Load Files")
-        self.btn_load_files.clicked.connect(self.on_load_files_btn_clicked)
 
 
         self.btn_dft_analysis = QPushButton("DFT Analysis")
@@ -129,6 +128,9 @@ class LeftPanel(QWidget):
         self.btn_delete.clicked.connect(self._on_delete_clicked)
         self.btn_find_duplicates.clicked.connect(self._on_find_duplicates_clicked)
         self.sample_table.customContextMenuRequested.connect(self.show_context_menu)
+
+        #Load files
+        self.btn_load_files.clicked.connect(self.on_load_files_btn_clicked)
 
     def bind_controller(self, controller, last_db=None):
         self.controller = controller
@@ -335,3 +337,10 @@ class LeftPanel(QWidget):
             self.statusBar().showMessage(message, 5000)
         elif hasattr(self, "status_label"):
             self.status_label.setText(message)
+    # Load files
+    def on_load_files_btn_clicked(self):
+        if self.controller:
+            self.controller.start_import_files()
+
+    def show_error(self):
+        print("Show error in View")

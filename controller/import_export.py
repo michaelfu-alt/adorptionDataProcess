@@ -1,140 +1,161 @@
-from PySide6.QtWidgets import (
-    QFileDialog, QDialog, QLabel, QProgressBar, QPushButton, QTextEdit, 
-    QVBoxLayout, QHBoxLayout, QMessageBox
-)
-from PySide6.QtCore import Qt, QEventLoop
+# from PySide6.QtWidgets import (
+#     QFileDialog, QDialog, QLabel, QProgressBar, QPushButton, QTextEdit, 
+#     QVBoxLayout, QHBoxLayout, QMessageBox
+# )
+
+from PySide6.QtCore import QObject, QThread, Signal
+from PySide6.QtWidgets import QFileDialog, QMessageBox
+import os
+from view.process_dialog import ProcessDialog
 import os, time
 import pandas as pd   # 用于读取Excel
 
-class ImportExportManager:
-    def __init__(self, model, view):
+
+class ImportWorker(QObject):
+    progress = Signal(int, int, str)
+    finished = Signal(list)
+    error = Signal(str)
+
+    def __init__(self, filepaths, model):
+        super().__init__()
+        self.filepaths = filepaths
         self.model = model
-        self.view = view
+        self._paused = False
+        self._cancelled = False
+        self.loaded = []
 
-    # def load_files(self):
-    #     # 1. 选择文件
-    #     file_dialog = QFileDialog(self.view)
-    #     file_dialog.setFileMode(QFileDialog.ExistingFiles)
-    #     file_dialog.setNameFilters(["Excel files (*.xls* *.xlsx *.xlsm *.xlsb *.xltx *.xltm)", "All files (*)"])
-    #     file_dialog.setWindowTitle("Select one or more Excel files")
-    #     if not file_dialog.exec():
-    #         return
-    #     filepaths = file_dialog.selectedFiles()
-    #     if not filepaths:
-    #         return
+    def pause(self):
+        self._paused = True
 
-    #     total = len(filepaths)
-    #     loaded = []
+    def resume(self):
+        self._paused = False
 
-    #     # 2. 进度窗口
-    #     prog_win = QDialog(self.view)
-    #     prog_win.setWindowTitle("Importing Files…")
-    #     prog_win.setModal(True)
-    #     layout = QVBoxLayout(prog_win)
+    def cancel(self):
+        self._cancelled = True
 
-    #     label_info = QLabel("Importing files:")
-    #     layout.addWidget(label_info)
+    def run(self):
+        print("Worker started")            
+        total = len(self.filepaths)
 
-    #     label_current = QLabel("Starting…")
-    #     layout.addWidget(label_current)
+        # 在线程内新建连接，不修改 self.model.conn
+        thread_conn = self.model.get_thread_connection()
 
-    #     progress = QProgressBar()
-    #     progress.setMaximum(total)
-    #     layout.addWidget(progress)
+        try:
+            for idx, fp in enumerate(self.filepaths, start=1):
+                print(f"ImportWorker: processing file {idx}/{total}: {fp}")  # DEBUG
 
-    #     btn_layout = QHBoxLayout()
-    #     btn_pause = QPushButton("Pause")
-    #     btn_continue = QPushButton("Continue")
-    #     btn_end = QPushButton("End")
-    #     btn_layout.addWidget(btn_continue)
-    #     btn_layout.addWidget(btn_pause)
-    #     btn_layout.addWidget(btn_end)
-    #     layout.addLayout(btn_layout)
+                if self._cancelled:
+                    break
+                while self._paused and not self._cancelled:
+                    time.sleep(0.1)
+                if self._cancelled:
+                    break
+                try:
+                    filename = os.path.basename(fp)
+                    self.progress.emit(idx, total, filename)
+                    
+                    # 调用 ingest_excel 时传入线程专属连接
+                    self.model.ingest_excel(fp, conn=thread_conn)
 
-    #     paused = False
-    #     cancelled = False
+                    print(f"ImportWorker: successfully loaded {fp}")  # DEBUG
+                    self.loaded.append(filename)
+                except Exception as e:
+                    print(f"ImportWorker: error loading {fp}: {e}")
+                    self.error.emit(f"Failed to import '{filename}':\n{e}")
+        finally:
+            thread_conn.commit()
+            thread_conn.close()  # 用完关闭连接
 
-    #     def on_pause():
-    #         nonlocal paused
-    #         paused = True
-    #     def on_continue():
-    #         nonlocal paused
-    #         paused = False
-    #     def on_end():
-    #         nonlocal cancelled
-    #         cancelled = True
+        self.finished.emit(self.loaded)
 
-    #     btn_pause.clicked.connect(on_pause)
-    #     btn_continue.clicked.connect(on_continue)
-    #     btn_end.clicked.connect(on_end)
 
-    #     prog_win.show()
-    #     def flush():
-    #         prog_win.repaint()
-    #         QEventLoop().processEvents()
+class ImportExportManager(QObject):
+    # import_started = Signal()
+    # import_progress = Signal(int, int, str)  # current, total, filename
+    import_error = Signal(str)
+    import_finished = Signal(list)  # list of loaded files
 
-    #     # 3. 文件读取与打印前三列
-    #     for idx, filepath in enumerate(filepaths, start=1):
-    #         if cancelled:
-    #             break
+    def __init__(self, model, parent=None):
+        super().__init__(parent)
+        self.model = model
+        self.worker = None
+        self.thread = None
+        self.progress_dialog = None
+        self.summary_dialog = None
 
-    #         filename = os.path.basename(filepath)
-    #         self.view.set_status(f"Importing {idx}/{total}: {filename}")
-    #         label_current.setText(f"{idx}/{total}: {filename}")
-    #         progress.setValue(idx)
-    #         flush()
-
-    #         while paused and not cancelled:
-    #             time.sleep(0.1)
-    #             flush()
-    #         if cancelled:
-    #             break
-
-    #         try:
-    #             # 读取Excel的第一个sheet前三列
-    #             df = pd.read_excel(filepath, sheet_name=0)
-    #             print(f"==={filename}===")
-    #             print(df.iloc[:, :3].head())  # 打印前三列前五行
-    #             loaded.append(filename)
-    #         except Exception as e:
-    #             QMessageBox.critical(self.view, "Import Error", f"Failed to read '{filename}':\n{e}")
-
-    #         flush()
-
-    #     prog_win.close()
-    #     self.view.set_status(f"Import complete: {len(loaded)}/{total} files.")
-
-    #     # 4. 总结
-    #     summary = QDialog(self.view)
-    #     summary.setWindowTitle("Import Summary")
-    #     layout2 = QVBoxLayout(summary)
-    #     layout2.addWidget(QLabel("Successfully imported:"))
-    #     txt = QTextEdit()
-    #     txt.setReadOnly(True)
-    #     txt.setLineWrapMode(QTextEdit.NoWrap)
-    #     txt.setFixedHeight(min(200, 24 * (len(loaded) + 2)))
-    #     for fn in loaded:
-    #         txt.append(f"• {fn}")
-    #     layout2.addWidget(txt)
-    #     btn_ok = QPushButton("OK")
-    #     btn_ok.clicked.connect(summary.accept)
-    #     layout2.addWidget(btn_ok, alignment=Qt.AlignRight)
-    #     summary.exec()
-
-    def load_files(self):
+    def start_import(self, parent_widget):
         filepaths, _ = QFileDialog.getOpenFileNames(
-            self.view, "选择Excel文件", "", "Excel files (*.xls *.xlsx *.xlsm *.xlsb);;All files (*)"
+            parent_widget,
+            "Select one or more Excel files",
+            "",
+            "Excel Files (*.xls *.xlsx *.xlsm *.xlsb *.xltx *.xltm);;All Files (*)"
         )
         if not filepaths:
             return
 
-        # 打印前三列测试
-        import pandas as pd
-        for fp in filepaths:
-            try:
-                df = pd.read_excel(fp)
-                print(f"{fp}: {df.iloc[:, :3].head()}")
-            except Exception as e:
-                print(f"Failed to read {fp}: {e}")
+        self.progress_dialog = ProcessDialog(len(filepaths))
+        self.progress_dialog.pause_clicked.connect(self.pause_import)
+        self.progress_dialog.continue_clicked.connect(self.resume_import)
+        self.progress_dialog.end_clicked.connect(self.cancel_import)
+        self.progress_dialog.show()
 
-        # 后续：展示自定义进度窗口、调用后台处理
+        self.worker = ImportWorker(filepaths, self.model)
+        self.worker.progress.connect(self.progress_dialog.update_status)
+        self.worker.error.connect(self.on_error)
+        self.worker.finished.connect(self.on_finished)
+
+        self.thread = QThread()
+        self.worker.moveToThread(self.thread)
+        self.thread.started.connect(self.worker.run)
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+
+        self.thread.start()
+        # self.import_started.emit()
+
+    def pause_import(self):
+        if self.worker:
+            self.worker.pause()
+
+    def resume_import(self):
+        if self.worker:
+            self.worker.resume()
+
+    def cancel_import(self):
+        if self.worker:
+            self.worker.cancel()
+
+    def on_error(self, msg):
+        self.import_error.emit(msg)
+
+    def on_finished(self, loaded_files):
+        if self.progress_dialog:
+            self.progress_dialog.close()
+
+        # 这里用主线程重新建立连接，确保安全
+        try:
+            if self.model.conn:
+                self.model.conn.close()
+            self.model.conn = self.model.get_main_thread_connection()
+        except Exception as e:
+            print("Error resetting main DB connection:", e)
+
+        # 弹窗显示导入完成信息    
+        summary_text = "\n".join(loaded_files)
+        QMessageBox.information(
+            self.progress_dialog.parent() or None,
+            "Import Summary",
+            f"Successfully imported {len(loaded_files)} files:\n{summary_text}"
+        )
+        self.import_finished.emit(loaded_files)
+
+
+    def show_summary(parent, loaded_files):
+        msg = QMessageBox(parent)
+        msg.setWindowTitle("Import Summary")
+        msg.setIcon(QMessageBox.Information)
+        msg.setText(f"Successfully imported {len(loaded_files)} files:")
+        msg.setDetailedText("\n".join(loaded_files))
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec()
