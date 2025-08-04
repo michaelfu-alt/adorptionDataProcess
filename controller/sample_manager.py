@@ -70,7 +70,14 @@ class SampleManager:
 
     #Delete Sample
     def delete_samples(self, sample_names):
+        print("传入的 sample_names 类型:", type(sample_names))
+        print("传入的 sample_names 内容:", sample_names)
+
+        # 如果传进来是字符串，直接包装成列表
+        if isinstance(sample_names, str):
+            sample_names = [sample_names]
         for name in sample_names:
+            print(f"{name} is called to delete")
             self.model.delete_sample(name)
 
     # Find Duplicate and Delete

@@ -216,11 +216,11 @@ class LeftPanel(QWidget):
         # 第一列通常为 sample_name
         row = items[0].row()
         sample_name = self.sample_table.item(row, 0).text()  # 假设第一列为样品名
-        print(f"Left panel selected {sample_name}")
+        print(f"Left panel sample_name {sample_name}")
         if self.controller:
             self.controller.on_sample_selected(sample_name)
 
-    def on_sample_selection_changed(self, selected, deselected):
+    def on_sample_selection_changed(self, sample_name, deselected):
         indexes = self.sample_table.selectedIndexes()
         if not indexes:
             return
@@ -236,7 +236,7 @@ class LeftPanel(QWidget):
         # 第一列通常为 sample_name
         row = items[0].row()
         sample_name = self.sample_table.item(row, 0).text()  # 假设第一列为样品名
-        print(f"Left panel selected {sample_name}")
+        print(f"Left panel sample_name {sample_name}")
         if self.controller:
             self.controller.edit_sample_info(sample_name)
 
@@ -277,23 +277,30 @@ class LeftPanel(QWidget):
     
 
     # Delete Sample
-    def get_selected_sample_names(self):
-        rows = list(set(idx.row() for idx in self.sample_table.selectedIndexes()))
-        names = []
-        for row in rows:
-            name_item = self.sample_table.item(row, 0)  # 假设样品名在第0列
-            if name_item:
-                names.append(name_item.text())
-        return names
-
 
     def _on_delete_clicked(self):
-        selected = self.get_selected_sample_names()
-        if not selected:
-            self.set_status("请选择要删除的样品")
+        items = self.sample_table.selectedItems()
+        if not items:
+            print("没有选中样品，无法删除")
             return
-        self.controller.delete_sample_info(selected)
+
+        # 第一列通常为 sample_name
+        rows = set()
+        for item in items:
+            rows.add(item.row())
+
+        sample_names = []
+        for row in rows:
+        # 第一列为样品名（文件名）
+            name = self.sample_table.item(row, 0).text()
+            sample_names.append(name)
+
+        print("准备删除样品（文件名）：", sample_names)
+        for name in sample_names:
+            self.controller.delete_sample_info(name)
     
+        self.refresh_sample_table()
+
     # Find duplicate and delete
     def _on_find_duplicates_clicked(self):
         print("[View] Find Duplicates 按钮被点击，转给 Controller")

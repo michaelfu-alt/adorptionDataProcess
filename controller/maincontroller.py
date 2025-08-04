@@ -82,12 +82,13 @@ class MainController:
         self.view.right_panel.update_psd_data(details["psd"])
         self.left_panel.set_status(f"{sample_name} is edited")
 
-    # Delete sample info
+    # Delete sample
     def delete_sample_info(self, sample_names):
+        print(f"{sample_names} is called")
         self.sample_manager.delete_samples(sample_names)
-        self.left_panel.refresh_table()
-        self.right_panel.clear()
-        self.left_panel.set_status("已删除选中样品")
+        self.view.right_panel.clear()
+        self.view.left_panel.refresh_sample_table()
+        self.view.left_panel.set_status("已删除选中样品")
 
     #Find and delete Duplciate
     def find_duplicates(self):

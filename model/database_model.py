@@ -315,22 +315,31 @@ class DatabaseModel:
 
     #Delete Sample
     def delete_sample(self, sample_name):
+        print(f"Deleting sample: {sample_name}")
+
         c = self.conn.cursor()
         # 查找样品ID
         c.execute("SELECT id FROM samples WHERE name = ?", (sample_name,))
         row = c.fetchone()
         if not row:
+            print(f"No sample found for name '{sample_name}'")
+
             return False
         sample_id = row[0]
+        print(f"Found sample id: {sample_id}")
+
         # 删除相关表数据
         for table in [
             "sample_info", "sample_results", "adsorption_data",
             "pore_distribution", "dft_data"
         ]:
+            print(f"Deleting from {table} sample_id={sample_id}")
             c.execute(f"DELETE FROM {table} WHERE sample_id = ?", (sample_id,))
         # 删除主表
         c.execute("DELETE FROM samples WHERE id = ?", (sample_id,))
         self.conn.commit()
+        print("Deletion committed")
+
         return True
     
     # Colone Sample
