@@ -121,6 +121,7 @@ class LeftPanel(QWidget):
         self.btn_new_db.clicked.connect(self._on_new_db_clicked)
         self.btn_backup_db.clicked.connect(self._on_backup_db_clicked)
         self.btn_delete_db.clicked.connect(self._on_delete_db_clicked)
+        self.btn_save_db.clicked.connect(self._on_save_db_clicked)
         self.sample_table.itemSelectionChanged.connect(self._on_sample_selected)
 
         # Sample Edit Delete Find Duplicate
@@ -147,8 +148,6 @@ class LeftPanel(QWidget):
         self.db_combo.addItem(filename, userData=full_path)
         self.db_combo.setCurrentIndex(0)
     
-   
-
     def clear_db_combo(self):
         self.db_combo.clear()
 
@@ -174,6 +173,12 @@ class LeftPanel(QWidget):
     def _on_delete_db_clicked(self):
         print("Delete DB Clicked")
         if self.controller: self.controller.delete_database()
+
+    def _on_save_db_clicked(self):
+        self.controller.save_database()
+
+
+
 
     def on_load_files_btn_clicked(self):
         print("Load Files Clicked")
@@ -217,15 +222,6 @@ class LeftPanel(QWidget):
         row = items[0].row()
         sample_name = self.sample_table.item(row, 0).text()  # 假设第一列为样品名
         print(f"Left panel sample_name {sample_name}")
-        if self.controller:
-            self.controller.on_sample_selected(sample_name)
-
-    def on_sample_selection_changed(self, sample_name, deselected):
-        indexes = self.sample_table.selectedIndexes()
-        if not indexes:
-            return
-        row = indexes[0].row()
-        sample_name = self.sample_table.item(row, 1).text()
         if self.controller:
             self.controller.on_sample_selected(sample_name)
     
@@ -306,6 +302,27 @@ class LeftPanel(QWidget):
         print("[View] Find Duplicates 按钮被点击，转给 Controller")
         self.controller.find_duplicates()
     
+    def show_no_duplicates(self):
+        QMessageBox.information(self, "No Duplicates", "No duplicates found with same File Name and Sample Name.")
+
+
+    def confirm_delete(self, to_delete):
+        reply = QMessageBox.question(
+            self, "Confirm Delete",
+            f"Delete {len(to_delete)} duplicate sample(s)?\n\n"
+            + "\n".join(to_delete[:10])
+            + ("" if len(to_delete) <= 10 else "\n…"),
+            QMessageBox.Yes | QMessageBox.No
+        )
+        return reply == QMessageBox.Yes
+    
+    def show_delete_errors(self, errors):
+        QMessageBox.critical(self, "Delete Errors", "\n".join(errors))
+
+    def show_deleted_info(self, count):
+        QMessageBox.information(self, "Duplicates Removed", f"Deleted {count} duplicate sample(s).")
+
+
     # Right click of context menu
     def show_context_menu(self, pos):
         indexes = self.sample_table.selectionModel().selectedRows()

@@ -89,6 +89,23 @@ class DBManager:
             except Exception as e:
                 QMessageBox.critical(self.view, "删除失败", f"删除数据库时出错：\n{e}")
 
+    def save_database(self):
+        """
+        Explicitly commit pending changes to the current database.
+        """
+        try:
+            self.model.conn.commit()
+            QMessageBox.information(
+                self.view,  # or appropriate QWidget parent
+                "Database Saved",
+                f"All changes have been written to:\n{self.model.db_path}"
+            )
+        except Exception as e:
+            QMessageBox.critical(
+            self.view,
+            "Save Error",
+            f"Failed to save database:\n{str(e)}"
+        )
     def update_db_history(self, db_path):
         """
         db_path: 新切换/新建/当前操作的数据库全路径

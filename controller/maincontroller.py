@@ -23,7 +23,7 @@ class MainController:
         self._copied_db_path = None
 
         # 具体功能分模块
-        self.sample_manager = SampleManager(self.model)
+        self.sample_manager = SampleManager(self.model, self.view)
         self.db_manager = DBManager(self.model, self.view)
         # self.import_export_manager = ImportExportManager(model, view)
         self.import_manager = ImportExportManager(model)
@@ -46,6 +46,10 @@ class MainController:
         print("MainController.delete_database called")
         self.db_manager.delete_database()
     
+    def save_database(self):
+        print("MainController.delete_database called")
+        self.db_manager.save_database()
+
     def on_sample_selected(self,sample_name):
         self.left_panel.set_status(f"{sample_name}")
         details = self.sample_manager.get_all_sample_details(sample_name)
@@ -87,57 +91,12 @@ class MainController:
         print(f"{sample_names} is called")
         self.sample_manager.delete_samples(sample_names)
         self.view.right_panel.clear()
-        self.view.left_panel.refresh_sample_table()
         self.view.left_panel.set_status("已删除选中样品")
 
     #Find and delete Duplciate
     def find_duplicates(self):
-        dup_groups = self.sample_manager.find_exact_duplicates_by_file_and_sample()
-        if not dup_groups:
-            QMessageBox.information(self.view, "No Duplicates", "No duplicates found with same File Name and Sample Name.")
-            return
-
-        # 计算默认删除项：每组保留 internal_name 最长的，其它选中删除
-        to_delete = []
-        for key, internal_names in dup_groups.items():
-            # 保留最长 internal_name
-            keep = max(internal_names, key=len)
-            for n in internal_names:
-                if n != keep:
-                    to_delete.append(n)
-
-        # 调用弹窗，弹窗支持预选 to_delete
-        dlg = DuplicateDeleteDialog(dup_groups, preselect=to_delete, parent=self.view)
-        dlg.deleteConfirmed.connect(self._on_delete_duplicates)
-        dlg.exec()
-    
-    def _on_delete_duplicates(self, to_delete: list[str]):
-        if not to_delete:
-            return
-
-        reply = QMessageBox.question(
-            self.view, "Confirm Delete",
-            f"Delete {len(to_delete)} duplicate sample(s)?\n\n"
-            + "\n".join(to_delete[:10])
-            + ("" if len(to_delete) <= 10 else "\n…"),
-            QMessageBox.Yes | QMessageBox.No
-        )
-        if reply != QMessageBox.Yes:
-            return
-
-        errors = []
-        for internal_name in to_delete:
-            try:
-                self.sample_manager.model.delete_sample(internal_name)
-            except Exception as e:
-                errors.append(f"Could not delete '{internal_name}': {str(e)}")
-
-        self._load_sample_list()  # 你已有的刷新样品列表函数
-
-        if errors:
-            QMessageBox.critical(self.view, "Delete Errors", "\n".join(errors))
-        else:
-            QMessageBox.information(self.view, "Duplicates Removed", f"Deleted {len(to_delete)} duplicate sample(s).")
+       # 调用SampleManager的查重方法
+        self.sample_manager.find_duplicates()
     
     # Context Menu from Right click
     def copy_samples(self):
