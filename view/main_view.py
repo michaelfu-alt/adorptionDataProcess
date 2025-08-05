@@ -7,7 +7,7 @@ class MainView(QWidget):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
-        self.setWindowTitle("iPore Data Wizard")
+        self.setWindowTitle("Adsorption Data Wizard")
         self.resize(1000, 600)
         # 布局
         layout = QHBoxLayout(self)

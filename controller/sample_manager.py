@@ -27,12 +27,16 @@
 from model.database_model import DatabaseModel
 from view.dialog_window import EditSampleDialog
 from PySide6.QtWidgets import QDialog
+from PySide6.QtCore import Slot
 import json
 import datetime
-class SampleManager:
-    def __init__(self, model):
-        self.model = model
 
+from view.duplicate_sample_dialog import DuplicateDeleteDialog
+class SampleManager:
+    def __init__(self, model, view):
+
+        self.model = model
+        self.view = view
         # 迁移以下属性（可在主controller.__init__中赋值）
         self.sample_sets = {}
         self._copied_samples = []
@@ -82,26 +86,71 @@ class SampleManager:
 
     # Find Duplicate and Delete
     
-    def find_exact_duplicates_by_file_and_sample(self):
-        """
-        查找文件名(第0列)和样品名(第1列)都相同的重复样品，
-        返回 dict：
-          { (file_name, sample_name): [internal_name1, internal_name2, ...], ... }
-        """
+    def find_duplicates(self):
+        dup_groups = self.find_exact_duplicates_by_file()
+        if not dup_groups:
+            self.view.left_panel.show_no_duplicates()
+            return
+
+        # 计算默认删除项：每组保留 internal_name 最长的，其它选中删除
+        to_delete = []
+        for file_name, internal_names in dup_groups.items():
+            keep = max(internal_names, key=len)
+            for n in internal_names:
+                if n != keep:
+                    to_delete.append(n)
+
+        # 弹窗选择删除（调用自定义的 DuplicateDeleteDialog）
+        dlg = DuplicateDeleteDialog(dup_groups, preselect=to_delete, parent=self.view)
+        dlg.deleteConfirmed.connect(self._on_delete_duplicates)
+        dlg.exec()
+
+    def find_exact_duplicates_by_file(self):
         overview_rows = self.model.get_sample_overview()
         groups = {}
+        print(len(overview_rows))
         for row in overview_rows:
-            internal_name = row[0]   # internal_name 假设也是文件名或唯一ID
-            file_name     = row[0]   # 第0列是文件名，和internal_name同索引
-            sample_name   = row[1]   # 第1列样品名
+            internal_name = row[0]
+            file_name   = row[1]
+            print("Sample is called in Sample Manager")
+            print(internal_name, file_name)
+            groups.setdefault(file_name, []).append(internal_name)
 
-            key = (file_name, sample_name)
-            groups.setdefault(key, []).append(internal_name)
-
-        # 过滤只保留重复组(组内数量 > 1)
-        dup_groups = {k:v for k,v in groups.items() if len(v) > 1}
+        dup_groups = {k: v for k, v in groups.items() if len(v) > 1}
         return dup_groups
+
+    @Slot(list)
+    def _on_delete_duplicates(self, to_delete):
+        if not to_delete:
+            return
+
+        confirm = self.view.left_panel.confirm_delete(to_delete)
+        if not confirm:
+            return
+
+        errors = []
+        for internal_name in to_delete:
+            try:
+                self.model.delete_sample(internal_name)
+            except Exception as e:
+                errors.append(f"Could not delete '{internal_name}': {str(e)}")
+
+        # 刷新样品列表（你已有的刷新方法）
+        self._load_sample_list()
+
+        if errors:
+            self.view.left_panel.show_delete_errors(errors)
+        else:
+            self.view.left_panel.show_deleted_info(len(to_delete))
     
+    def _load_sample_list(self):
+        # 调用 View 的刷新方法，或者 Controller 的刷新逻辑
+        # 例如：
+        try:
+            self.view.left_panel.refresh_sample_table()
+        except:
+            print("Warning: view has no method refresh_sample_table")
+
     # Copy and paste function
     def copy_sample_data(self, sample_name: str) -> dict:
         """
