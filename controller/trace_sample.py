@@ -71,55 +71,6 @@ class TraceController:
         self.filtered_rows = self.model.get_rows()
         self.update_sample_list()
 
-    # def on_plot(self):
-    #     fields = self.view.get_selected_fields()
-    #     samples = self.view.get_selected_samples()
-    #     if not fields:
-    #         QMessageBox.warning(self.view, "提示", "请选择要绘制的字段")
-    #         return
-    #     if not samples:
-    #         QMessageBox.warning(self.view, "提示", "请选择样品")
-    #         return
-
-    #     ax = self.view.ax
-    #     ax.clear()
-
-    #     x = range(len(fields))
-    #     categorical_maps = {}
-    #     for f in fields:
-    #         if f in self.model._categorical_fields:
-    #             cats = sorted(set(r.get(f) for r in self.filtered_rows if r.get(f) is not None))
-    #             categorical_maps[f] = {v:i for i,v in enumerate(cats)}
-
-    #     for sample_name in samples:
-    #         row = next((r for r in self.filtered_rows if (r.get("Sample Name") == sample_name or r.get("样品名称") == sample_name)), None)
-    #         if not row:
-    #             continue
-    #         ys = []
-    #         for f in fields:
-    #             v = row.get(f)
-    #             if f in categorical_maps:
-    #                 v = categorical_maps[f].get(v, 0)
-    #             else:
-    #                 try:
-    #                     v = float(v)
-    #                 except:
-    #                     v = 0
-    #             ys.append(v)
-    #         ax.plot(x, ys, alpha=0.5)
-        
-    #     ax.set_xticks(x)
-    #    # 关键：给xticklabels设置中文字体
-    #     ax.set_xticklabels(fields, fontproperties=self.chinese_font, rotation=45, ha='right')
-
-    #     # y轴标签加字体
-    #     ax.set_ylabel("数值 / 分类", fontproperties=self.chinese_font)
-
-    #     # 设置标题（可以按需加）
-    #     ax.set_title("样品追踪", fontproperties=self.chinese_font)
-
-    #     self.view.fig.tight_layout()
-    #     self.view.canvas.draw()
 
     def on_plot(self):
         fields = self.view.get_selected_fields()
