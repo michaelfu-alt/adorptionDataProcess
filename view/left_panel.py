@@ -1,7 +1,7 @@
 # view/left_panel.py
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QLabel, QGroupBox,
-    QTableWidget, QTableWidgetItem, QMenu, QAbstractItemView, QFrame, QMessageBox
+    QTableWidget, QTableWidgetItem, QMenu, QAbstractItemView, QFrame, QMessageBox, QFileDialog
 )
 from PySide6.QtCore import Qt, Signal
 import os
@@ -128,6 +128,8 @@ class LeftPanel(QWidget):
         self.btn_edit.clicked.connect(self._on_edit_clicked)
         self.btn_delete.clicked.connect(self._on_delete_clicked)
         self.btn_find_duplicates.clicked.connect(self._on_find_duplicates_clicked)
+        self.btn_export.clicked.connect(self.on_export_clicked)
+
         self.sample_table.customContextMenuRequested.connect(self.show_context_menu)
 
         #Load files
@@ -351,7 +353,7 @@ class LeftPanel(QWidget):
         selected_rows = self.sample_table.selectionModel().selectedRows()
         names = []
         for idx in selected_rows:
-            item = self.sample_table.item(idx.row(), 1)
+            item = self.sample_table.item(idx.row(), 0)
             if item:
                 names.append(item.text())
         return names
@@ -368,3 +370,8 @@ class LeftPanel(QWidget):
 
     def show_error(self):
         print("Show error in View")
+
+    
+    # Export to Excel
+    def on_export_clicked(self):
+        self.controller.export_samples()

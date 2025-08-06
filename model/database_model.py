@@ -311,7 +311,41 @@ class DatabaseModel:
         print("[DEBUG] 保存后 sample_info：", c.fetchall())
         print(f"{sample_name} is updated")
 
+    def get_export_sample_info(self, sample_name: str) -> dict:
+        """
+        根据样品名(sample_name)获取样品详细信息字典，用于导出Excel。
+        实现思路同get_edit_sample_info，但独立接口，避免耦合编辑功能。
+        """
+        c = self.conn.cursor()
+        
+        c.execute("SELECT name FROM samples")
+        rows = c.fetchall()
+        print("DB samples names:", [r[0] for r in rows])
 
+
+        # 先找样品id
+        c.execute("SELECT id FROM samples WHERE name=?", (sample_name,))
+        row = c.fetchone()
+        if not row:
+            print(f"[Warning] Sample '{sample_name}' not found in DB.")
+            return {}
+
+        sample_id = row[0]
+
+        # 查询 sample_info 表字段名和值
+        c.execute("SELECT field_name, field_value FROM sample_info WHERE sample_id=?", (sample_id,))
+        rows = c.fetchall()
+        if not rows:
+            print(f"[Warning] No sample_info found for sample_id {sample_id}.")
+            return {}
+
+        info_dict = {field_name: field_value for field_name, field_value in rows}
+
+        # 你可以在这里根据需求补充默认字段，比如样品名
+        if "Sample Name" not in info_dict:
+            info_dict["Sample Name"] = sample_name
+
+        return info_dict
 
     #Delete Sample
     def delete_sample(self, sample_name):

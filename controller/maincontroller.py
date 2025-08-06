@@ -1,10 +1,9 @@
 # controller/main_controller.py
-from PySide6.QtWidgets import QMessageBox, QDialog, QApplication
+from PySide6.QtWidgets import QMessageBox, QFileDialog
 from controller.sample_manager import SampleManager
 from controller.db_manager import DBManager
-from controller.import_export import ImportExportManager
-from view.duplicate_sample_dialog import DuplicateFieldDialog, DuplicateDeleteDialog
-import os
+from controller.import_export import ImportExportManager, SampleExporter
+from view.export_excel_dialog import FieldSelectDialog
 import sqlite3
 # from controller.batch_tools import 
 # from controller.analysis_tools import AnalysisTools
@@ -177,3 +176,39 @@ class MainController:
     def on_import_finished(self, loaded_files):
         self.view.left_panel.set_status(f"Import complete: {len(loaded_files)} files.")
         self.view.left_panel.refresh_sample_table()
+    
+    # Export Sample to excel
+    def export_samples(self):
+        # 1. 获取选中样品名
+        sample_names = self.view.left_panel.get_selected_sample_names()
+        print("Selected samples:", sample_names)
+        if not sample_names:
+            QMessageBox.warning(self.view, "Warning", "Please select samples to export.")
+            return
+
+        # 2. 弹出保存文件对话框
+        path, _ = QFileDialog.getSaveFileName(self.view, "Export Samples", filter="Excel Files (*.xlsx)")
+        print("Save path:", path)
+        if not path:
+            return
+
+        # 3. 字段选择对话框
+        all_fields = list(SampleExporter.EXCEL_CELL_MAP.keys())
+        default_fields = ["样品名称", "样品重量[g]", "多点BET比表面积[m^2/g]"]
+        print("Available fields:", all_fields)
+        print("Default fields:", default_fields)
+
+        dlg = FieldSelectDialog(all_fields, default_fields, parent=self.view)
+        if dlg.exec() != QFileDialog.Accepted:
+            print("Field selection canceled")
+            return
+        selected_fields = dlg.selected_fields
+        print("Selected fields:", selected_fields)
+        field_cell_map = dlg.field_cell_map
+        
+        # 4. 调用导出类执行导出
+        try:
+            exporter = SampleExporter(self.model, parent_widget=self.view)
+            exporter.export(path, sample_names, summary_fields=selected_fields, excel_cell_map=field_cell_map)
+        except Exception as e:
+            QMessageBox.critical(self.view.left_panel, "Export Error", f"Failed to export samples:\n{str(e)}")
