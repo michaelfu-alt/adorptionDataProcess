@@ -3,6 +3,7 @@ from PySide6.QtWidgets import QMessageBox, QFileDialog
 from controller.sample_manager import SampleManager
 from controller.db_manager import DBManager
 from controller.import_export import ImportExportManager, SampleExporter
+from controller.trace_sample import TraceController
 from view.export_excel_dialog import FieldSelectDialog
 import sqlite3
 # from controller.batch_tools import 
@@ -212,3 +213,23 @@ class MainController:
             exporter.export(path, sample_names, summary_fields=selected_fields, excel_cell_map=field_cell_map)
         except Exception as e:
             QMessageBox.critical(self.view.left_panel, "Export Error", f"Failed to export samples:\n{str(e)}")
+    
+    # Trace Samples
+    def open_trace_window(self):
+        # 从View取选中的样品名
+        selected_samples = self.view.left_panel.get_selected_sample_names()
+        print(f"{selected_samples} is to be called in contoller to trace")
+        if not selected_samples:
+            QMessageBox.warning(self.view, "提示", "请先选择样品")
+            return
+
+        # 取样品信息数据，作为Trace数据
+        trace_rows = []
+        for sample_name in selected_samples:
+            info = self.model.get_sample_info(sample_name)
+            if info:
+                trace_rows.append(info)
+
+        # 创建Trace控制器并显示窗口
+        self.trace_ctrl = TraceController(self.model, trace_rows)
+        self.trace_ctrl.show()

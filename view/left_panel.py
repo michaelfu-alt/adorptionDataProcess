@@ -82,13 +82,13 @@ class LeftPanel(QWidget):
         self.btn_delete = QPushButton("Delete")
         self.btn_find_duplicates = QPushButton("Find Duplicates")
         self.btn_export = QPushButton("Export")
-        self.btn_compare_sets = QPushButton("Compare Sets")
+        # self.btn_compare_sets = QPushButton("Compare Sets")
         self.btn_trace_samples = QPushButton("Trace Samples")
         crud_layout.addWidget(self.btn_edit)
         crud_layout.addWidget(self.btn_delete)
         crud_layout.addWidget(self.btn_find_duplicates)
         crud_layout.addWidget(self.btn_export)
-        crud_layout.addWidget(self.btn_compare_sets)
+        # crud_layout.addWidget(self.btn_compare_sets)
         crud_layout.addWidget(self.btn_trace_samples)
         layout.addLayout(crud_layout)
 
@@ -129,6 +129,7 @@ class LeftPanel(QWidget):
         self.btn_delete.clicked.connect(self._on_delete_clicked)
         self.btn_find_duplicates.clicked.connect(self._on_find_duplicates_clicked)
         self.btn_export.clicked.connect(self.on_export_clicked)
+        self.btn_trace_samples.clicked.connect(self.on_open_trace_window)
 
         self.sample_table.customContextMenuRequested.connect(self.show_context_menu)
 
@@ -375,3 +376,8 @@ class LeftPanel(QWidget):
     # Export to Excel
     def on_export_clicked(self):
         self.controller.export_samples()
+
+    # Trace Samples
+    def on_open_trace_window(self):
+        print("trace view called")
+        self.controller.open_trace_window()
