@@ -186,13 +186,7 @@ class MainController:
             QMessageBox.warning(self.view, "Warning", "Please select samples to export.")
             return
 
-        # 2. 弹出保存文件对话框
-        path, _ = QFileDialog.getSaveFileName(self.view, "Export Samples", filter="Excel Files (*.xlsx)")
-        print("Save path:", path)
-        if not path:
-            return
-
-        # 3. 字段选择对话框
+        # 32. 字段选择对话框
         all_fields = list(SampleExporter.EXCEL_CELL_MAP.keys())
         default_fields = ["样品名称", "样品重量[g]", "多点BET比表面积[m^2/g]"]
         print("Available fields:", all_fields)
@@ -205,6 +199,12 @@ class MainController:
         selected_fields = dlg.selected_fields
         print("Selected fields:", selected_fields)
         field_cell_map = dlg.field_cell_map
+        
+        # 3. 弹出保存文件对话框
+        path, _ = QFileDialog.getSaveFileName(self.view, "Export Samples", filter="Excel Files (*.xlsx)")
+        print("Save path:", path)
+        if not path:
+            return
         
         # 4. 调用导出类执行导出
         try:
