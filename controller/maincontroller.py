@@ -5,6 +5,8 @@ from controller.db_manager import DBManager
 from controller.import_export import ImportExportManager, SampleExporter
 from controller.trace_sample import TraceController
 from view.export_excel_dialog import FieldSelectDialog
+from view.comparison_plot_dialog import ComparisonPlotDialog
+
 import sqlite3
 # from controller.batch_tools import 
 # from controller.analysis_tools import AnalysisTools
@@ -233,3 +235,15 @@ class MainController:
         # 创建Trace控制器并显示窗口
         self.trace_ctrl = TraceController(self.model, trace_rows)
         self.trace_ctrl.show()
+    
+    # Comparison plot
+    def plot_samples(self):
+        # pull selection from the left panel (your code already provides this)
+        names = self.left_panel.get_selected_sample_names()
+        if not names:
+            QMessageBox.information(self.view, "Send to Plot", "No samples selected.")
+            return
+
+        # open the dual-panel comparison plot dialog
+        dlg = ComparisonPlotDialog(self.model, names, parent=self.view)
+        dlg.exec()
