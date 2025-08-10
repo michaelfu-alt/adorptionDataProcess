@@ -1,6 +1,5 @@
 .venv/
 venv/
-utils/
 upgrade_databse.py
 test_font.py
 **/__pycache__
