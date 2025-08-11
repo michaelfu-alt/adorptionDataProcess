@@ -1,7 +1,3 @@
-# from PySide6.QtWidgets import (
-#     QFileDialog, QDialog, QLabel, QProgressBar, QPushButton, QTextEdit, 
-#     QVBoxLayout, QHBoxLayout, QMessageBox
-# )
 
 from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import QFileDialog, QMessageBox
