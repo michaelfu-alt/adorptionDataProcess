@@ -73,6 +73,12 @@ class LeftPanel(QWidget):
         self.sample_table.setSortingEnabled(True)
         self.sample_table.sortItems(14, Qt.AscendingOrder)  # 按第1列升序排序
         self.sample_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.sample_table.setStyleSheet(
+        """QTableWidget::item:selected {
+            background-color: #0078d7;
+            color: white;
+        }
+        """)
         layout.addWidget(self.sample_table, 10)
 
         # 操作区
