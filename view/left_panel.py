@@ -1,8 +1,7 @@
 # view/left_panel.py
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QLabel, QGroupBox,
-    QTableWidget, QTableWidgetItem, QMenu, QAbstractItemView, QFrame, QMessageBox, QFileDialog
-)
+    QTableWidget, QTableWidgetItem, QMenu, QAbstractItemView, QFrame, QMessageBox)
 from PySide6.QtCore import Qt, Signal
 import os
 
