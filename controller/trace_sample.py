@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QMessageBox, QFileDialog
+from PySide6.QtWidgets import QMessageBox, QFileDialog, QDialog
 from view.trace_view import TraceView
 from controller.import_export import SampleExporter  # 你已有的导出类
 from matplotlib.font_manager import FontProperties
@@ -8,6 +8,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import matplotlib.cm as cm
+
+from view.filter_dialog import FilterDialog, FilterRule
+import math
 
 class TraceModel:
     def __init__(self, rows):
@@ -337,7 +340,82 @@ class TraceController:
         ax.set_title("平行坐标图", fontproperties=self.chinese_font)
 
         self.view.canvas.draw()
+    
+    def open_advanced_filter(self):
+        fields = self.model.get_fields()
+        dlg = FilterDialog(fields, parent=self.view)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        res = dlg.result()
+        rules: list[FilterRule] = res["rules"]
+        logic: str = res["logic"]  # "AND" / "OR"
+        case: bool = res["case"]
 
+        rows = self.model.get_rows()
+        filtered = self._apply_advanced_filters(rows, rules, logic, case)
+        if not filtered:
+            QMessageBox.information(self.view, "提示", "无符合条件的样品")
+            self.filtered_rows = rows
+        else:
+            self.filtered_rows = filtered
+        self.update_sample_list()
+
+    def _apply_advanced_filters(self, rows, rules: list, logic: str, case: bool):
+        def matches(rule: FilterRule, row: dict) -> bool:
+            v = row.get(rule.field, None)
+            op = rule.op
+
+            # numeric try
+            def f(x):
+                try:
+                    return float(x)
+                except Exception:
+                    return None
+
+            if op in (">", ">=", "<", "<=", "==", "!="):
+                a = f(v); b = f(rule.v1)
+                if a is not None and b is not None:
+                    if op == ">":  return a >  b
+                    if op == ">=": return a >= b
+                    if op == "<":  return a <  b
+                    if op == "<=": return a <= b
+                    if op == "==": return a == b
+                    if op == "!=": return a != b
+                # fallback to string compare for ==/!= only
+                if op in ("==","!="):
+                    s1 = "" if v is None else str(v)
+                    s2 = str(rule.v1)
+                    if not case:
+                        s1, s2 = s1.lower(), s2.lower()
+                    return (s1 == s2) if op == "==" else (s1 != s2)
+                return False
+
+            if op == "between":
+                a = f(v); lo = f(rule.v1); hi = f(rule.v2)
+                if a is None or lo is None or hi is None:
+                    return False
+                if lo > hi: lo, hi = hi, lo
+                return lo <= a <= hi
+
+            # string ops
+            s = "" if v is None else str(v)
+            t = str(rule.v1)
+            if not case:
+                s, t = s.lower(), t.lower()
+
+            if op == "contains":    return t in s
+            if op == "startswith":  return s.startswith(t)
+            if op == "endswith":    return s.endswith(t)
+            return False
+
+        out = []
+        use_and = (logic.upper() == "AND")
+        for r in rows:
+            results = [matches(rule, r) for rule in rules]
+            keep = all(results) if use_and else any(results)
+            if keep:
+                out.append(r)
+        return out
     # def on_plot(self):
     #     fields = self.view.get_selected_fields()
     #     samples = self.view.get_selected_samples()

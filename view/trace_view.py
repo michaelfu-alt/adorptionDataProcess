@@ -3,9 +3,11 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QLineEdit,
     QPushButton, QListWidget, QCheckBox, QScrollArea, QGridLayout
 )
+from PySide6.QtCore import Qt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.font_manager import FontProperties
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QFont
 
 class TraceView(QWidget):
     def __init__(self, controller, model):
@@ -44,6 +46,8 @@ class TraceView(QWidget):
 
         self.reset_btn = QPushButton("Reset Filter")
         filter_layout.addWidget(self.reset_btn)
+        self.adv_filter_btn = QPushButton("Advanced Filter…")
+        filter_layout.addWidget(self.adv_filter_btn)
 
         layout.addLayout(filter_layout)
 
@@ -91,6 +95,8 @@ class TraceView(QWidget):
         # ===== Signals =====
         self.filter_btn.clicked.connect(self.on_filter_clicked)
         self.reset_btn.clicked.connect(self.on_reset_clicked)
+        self.adv_filter_btn.clicked.connect(self.controller.open_advanced_filter)
+
         self.select_all_btn.clicked.connect(self.select_all_samples)
         self.clear_btn.clicked.connect(self.clear_selection)
         self.plot_btn.clicked.connect(self.controller.on_plot)
@@ -98,9 +104,38 @@ class TraceView(QWidget):
         self.export_btn.clicked.connect(self.controller.on_export)
 
     # ---------- UI rebuild helpers ----------
+    def _classify_fields(self, fields: list[str]) -> tuple[list[str], list[str], list[str]]:
+        """
+        Split fields into (info_fields, result_fields, pore_fields).
+        Heuristic:
+        - Pore fields are known keys below.
+        - Info fields include common metadata keys.
+        - Results are everything else.
+        """
+        pore_keys = {
+            "Pore Min (nm)", "Pore Max (nm)", "Pore Peak (nm)", "Pore Range (nm)"
+        }
+        info_hint = {
+            "Sample Name", "样品名称",
+            "吸附质", "Probe molecule",
+            "检测员", "Operator",
+            "Date", "日期", "Batch", "批次", "Instrument", "仪器",
+        }
+
+        pore_fields = [f for f in fields if f in pore_keys]
+        info_fields = [f for f in fields if f in info_hint]
+
+        # Results = remaining not in pore or info
+        used = set(pore_fields) | set(info_fields)
+        result_fields = [f for f in fields if f not in used]
+
+        # Don’t show "Sample Name" in checkbox grid, but keep it in filter dropdown if you want:
+        # (You already skip it in the checkbox grid elsewhere.)
+        return info_fields, result_fields, pore_fields
+    
     def _rebuild_field_checkboxes(self, fields: list[str], columns: int = 3):
         """(Re)create the field checkbox grid, skipping 'Sample Name'."""
-        # Clear old widgets from layout
+        # Clear old
         while self.field_scroll_layout.count():
             item = self.field_scroll_layout.takeAt(0)
             w = item.widget()
@@ -109,7 +144,7 @@ class TraceView(QWidget):
                 w.deleteLater()
         self.field_checkboxes = []
 
-        # Create new checkboxes
+        # Build grid (skip Sample Name)
         filtered_fields = [f for f in fields if f != "Sample Name"]
         for idx, f in enumerate(filtered_fields):
             cb = QCheckBox(f)
@@ -119,20 +154,65 @@ class TraceView(QWidget):
             self.field_scroll_layout.addWidget(cb, row, col)
             self.field_checkboxes.append(cb)
 
-        # Also refresh the filter combobox to match current fields
+        # 🔁 Also refresh the filter combobox with grouped sections
         self._rebuild_filter_fields(fields)
+    def update_field_list(self, fields: list[str]):
+        self._rebuild_field_checkboxes(fields)
+
+    def set_fields(self, fields: list[str]):
+        self.update_field_list(fields)
 
     def _rebuild_filter_fields(self, fields: list[str]):
-        """Repopulate the filter field combobox."""
-        current = self.field_cb.currentText()
-        self.field_cb.blockSignals(True)
-        self.field_cb.clear()
-        self.field_cb.addItems(fields)
-        # try to preserve previous selection if still present
-        idx = self.field_cb.findText(current)
-        if idx >= 0:
-            self.field_cb.setCurrentIndex(idx)
-        self.field_cb.blockSignals(False)
+        """Repopulate the filter field combobox with grouped headers."""
+        # Preserve current selection if possible
+        prev = self.field_cb.currentText()
+
+        info_fields, result_fields, pore_fields = self._classify_fields(fields)
+
+        model = QStandardItemModel(self.field_cb)
+        header_font = QFont()
+        header_font.setBold(True)
+
+        def add_header(title: str):
+            item = QStandardItem(f"— {title} —")
+            item.setFlags(item.flags() & ~Qt.ItemIsEnabled & ~Qt.ItemIsSelectable)
+            item.setFont(header_font)
+            model.appendRow(item)
+
+        def add_fields(fs: list[str]):
+            for f in fs:
+                it = QStandardItem(f)
+                model.appendRow(it)
+
+        model.clear()
+        if info_fields:
+            add_header("Info")
+            add_fields(info_fields)
+        if result_fields:
+            add_header("Results")
+            add_fields(result_fields)
+        if pore_fields:
+            add_header("Pore Size Distribution")
+            add_fields(pore_fields)
+
+        self.field_cb.setModel(model)
+
+        # Try to restore previous selection
+        # (search through model items for matching text)
+        found_index = None
+        for i in range(model.rowCount()):
+            idx = model.index(i, 0)
+            if model.data(idx) == prev and model.item(i).isEnabled():
+                found_index = i
+                break
+        if found_index is not None:
+            self.field_cb.setCurrentIndex(found_index)
+        else:
+            # Set to first enabled item (skip headers)
+            for i in range(model.rowCount()):
+                if model.item(i).isEnabled():
+                    self.field_cb.setCurrentIndex(i)
+                    break
 
     # Exposed for controller
     def update_field_list(self, fields: list[str]):
