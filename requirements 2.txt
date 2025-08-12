@@ -1,0 +1,6 @@
+pandas>=2.0
+openpyxl>=3.0
+xlrd>=2.0
+matplotlib>=3.0
+pyinstaller>=5.0
+py2app>=0.28

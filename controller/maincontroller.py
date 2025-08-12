@@ -8,10 +8,7 @@ from view.export_excel_dialog import FieldSelectDialog
 from view.comparison_plot_dialog import ComparisonPlotDialog
 
 import sqlite3
-# from controller.batch_tools import 
-# from controller.analysis_tools import AnalysisTools
-# from controller.plot_tools import PlotTools
-# from controller.play_tools import PlayTools
+
 
 class MainController:
     def __init__(self, model, view):
@@ -225,15 +222,8 @@ class MainController:
             QMessageBox.warning(self.view, "提示", "请先选择样品")
             return
 
-        # 取样品信息数据，作为Trace数据
-        trace_rows = []
-        for sample_name in selected_samples:
-            info = self.model.get_sample_info(sample_name)
-            if info:
-                trace_rows.append(info)
-
         # 创建Trace控制器并显示窗口
-        self.trace_ctrl = TraceController(self.model, trace_rows)
+        self.trace_ctrl = TraceController(self.model, selected_samples)
         self.trace_ctrl.show()
     
     # Comparison plot

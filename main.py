@@ -29,7 +29,5 @@ if __name__ == "__main__":
         main_view.left_panel.update_db_combo(db_path)
     # 2. 绑定 controller，自动连接 last_db
     main_view.left_panel.bind_controller(main_controller, last_db=last_db)
-
-    
     main_view.show()
     sys.exit(app.exec())
