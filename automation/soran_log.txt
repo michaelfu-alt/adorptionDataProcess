@@ -1,10 +1,10 @@
 
-====== Soran DFT 批处理启动时间: 2025-08-10 12:31:09 ======
+====== Soran DFT 批处理启动时间: 2025-08-11 22:03:47 ======
 参数内容如下：
 stencil_exe: C:\Users\Dell\Desktop\StencilWizard.exe
 soran_exe: C:\Users\Dell\Desktop\iPoreDFT\Soran.exe
-model: CO2 in Carbon Slit pore at 273K
-model_index: 7
+model: Mixing Model ...
+model_index: 0
 model_options: ['Mixing Model ...', 'N2 in Carbon Slit pore at 77K', 'N2 in Carbon Cylindrical pore at 77K', 'N2 in Carbon Spherical pore at 77K', 'Ar in Zeolite Slit pore at 87K', 'Ar in Zeolite Cylindrical pore at 87K', 'Ar in Zeolite Spherical pore at 87K', 'CO2 in Carbon Slit pore at 273K', 'CO2 in Carbon Cylindric pore at 273K', 'CO2 in Carbon Spherical pore at 273K', 'N2 in Zeolite Slit pore at 77K', 'N2 in Zeolite Cylindrical pore at 77K', 'N2 in Zeolite Spherical pore at 77K', 'N2 in MOF (site Zn) at 77K', 'N2 in MOF (linker C) at 77K', 'N2 in MOF (site Al) at 77K', 'N2 in MOF (linker N) at 77K', 'N2 in Carbon Slit pore at 77K (2D-NLDFT)', 'N2 in Carbon Cylindrical pore at 77K (2D-NLDFT)', 'N2 in Carbon Spherical pore at 77K (2D-NLDFT)', 'Ar in Carbon Slit pore at 87K (zeolite-like)', 'Ar in Carbon Cylindrical pore at 87K (zeolite-like)', 'Ar in Carbon Spherical pore at 87K (zeolite-like)', 'N2 in Zeolite Slit pore at 77K (2D-NLDFT)', 'N2 in Zeolite Cylindrical pore at 77K (2D-NLDFT)', 'N2 in Zeolite Spherical pore at 77K (2D-NLDFT)', 'O2 in Carbon Slit pore at 87K', 'O2 in Carbon Cylindrical pore at 87K', 'O2 in Carbon Spherical pore at 87K', 'H2 in Carbon Slit pore at 77K', 'H2 in Carbon Cylindrical pore at 77K', 'H2 in Carbon Spherical pore at 77K', 'N2 in Carbon Slit pore at 77K (HS-2D-NLDFT)', 'N2 in Carbon Cylindrical pore at 77K (HS-2D-NLDFT)', 'N2 in Carbon Spherical pore at 77K (HS-2D-NLDFT)', 'N2 in Zeolite Slit pore at 77K (HS-2D-NLDFT)', 'N2 in Zeolite Cylindrical pore at 77K (HS-2D-NLDFT)', 'N2 in Zeolite Spherical pore at 77K (HS-2D-NLDFT)', 'H2 in Zeolite Slit pore at 77K', 'H2 in Zeolite Cylindrical pore at 77K', 'H2 in Zeolite Spherical pore at 77K', 'Ar in MFI Slit pore at 87K', 'Ar in MFI Cylindrical pore at 87K', 'Ar in MFI Spherical pore at 87K', 'O2 in MFI Slit pore at 77K', 'O2 in MFI Cylindrical pore at 77K', 'O2 in MFI Spherical pore at 77K']
 desorption: False
 pp0: p0
@@ -12,6 +12,8 @@ unit: cm3(STP)/g
 min_pressure: 0.05
 max_pressure: 0.95
 smooth_factor: 4
+mixing_model_indices: [2, 4]
+mixing_model_names: ['N2 in Carbon Cylindrical pore at 77K', 'Ar in Zeolite Slit pore at 87K']
 参数读取正常，开始处理…
 [启动 Soran 应用]: C:\Users\Dell\Desktop\iPoreDFT\Soran.exe
 [DFT] 共收到 1 个文件待处理。
@@ -25,6 +27,14 @@ Find Window: Analyze Pore Size
   - 所有选项: ['atm', 'bar', 'MPa', 'KPa', 'mmHg', 'cmHg', 'p0', 'Pa']
 [DEBUG] 选择单位: cm3(STP)/g
   - 所有选项: ['cm3(STP)/cm3', 'cm3(STP)/dm3', 'cm3(STP)/m3', 'cm3(STP)/g', 'cm3(STP)/mg', 'cm3(STP)/kg', 'mol/cm3', 'mol/dm3', 'mol/m3', 'mol/g', 'mol/mg', 'mol/kg', 'dm3(STP)/cm3', 'dm3(STP)/dm3', 'dm3(STP)/m3', 'dm3(STP)/g', 'dm3(STP)/mg', 'dm3(STP)/kg', 'm3(STP)/cm3', 'm3(STP)/dm3', 'm3(STP)/m3', 'm3(STP)/g', 'm3(STP)/mg', 'm3(STP)/kg', 'g/cm3', 'g/dm3', 'g/m3', 'g/g', 'g/mg', 'g/kg', 'mg/cm3', 'mg/dm3', 'mg/m3', 'mg/g', 'mg/mg', 'mg/kg', 'ug/cm3', 'ug/dm3', 'ug/m3', 'ug/g', 'ug/mg', 'ug/kg', 'ng/cm3', 'ng/dm3', 'ng/m3', 'ng/g', 'ng/mg', 'ng/kg', 'kg/cm3', 'kg/dm3', 'kg/m3', 'kg/g', 'kg/mg', 'kg/kg']
+[DEBUG] 选择模型索引: 0
+[DEBUG] Waiting for top-level 'Mixed Model' dialog…
+[DEBUG] Found 'Mixed Model' dialog.
+
+[DEBUG] Control identifiers for 'Mixed Model':
+['N2 in Carbon Cylindrical pore at 77K', 'Ar in Zeolite Slit pore at 87K']
+46
+[INFO] Checked models: ['N2 in Carbon Cylindrical pore at 77K', 'Ar in Zeolite Slit pore at 87K']
 [DEBUG] 设置 Desorption: False
 [DEBUG] 设置 Min Pressure: 0.05
 [DEBUG] 设置 Max Pressure: 0.95
@@ -32,6 +42,8 @@ Find Window: Analyze Pore Size
 已设置 Smooth Factor
 Wait 3s for data importing
 窗口隐藏后文件存储
+C:\Users\Dell\Desktop\iPoreWizard\MRP_Ad\2025.06.26BTR\test\CQ2-9-4_2025-6-25_1.txt_mixed_model.csv
+[DEBUG] Mixed model save name forced to: C:\Users\Dell\Desktop\iPoreWizard\MRP_Ad\2025.06.26BTR\test\CQ2-9-4_2025-6-25_1.txt_mixed_model.csv
 [WARN] 未检测到输出文件: C:\Users\Dell\Desktop\iPoreWizard\MRP_Ad\2025.06.26BTR\test\DFT Result.csv
 [DONE] 文件处理完成: C:\Users\Dell\Desktop\iPoreWizard\MRP_Ad\2025.06.26BTR\test\CQ2-9-4_2025-6-25_1.txt
 [DFT] 全部文件处理完毕。

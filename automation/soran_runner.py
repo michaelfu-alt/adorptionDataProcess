@@ -1,4 +1,4 @@
-from pywinauto import Application, Desktop
+from pywinauto import Application, Desktop, findwindows
 from pywinauto.mouse import move, click
 from pywinauto.keyboard import send_keys
 import pyperclip
@@ -26,6 +26,27 @@ class TeeLogger:
 sys.stdout = TeeLogger(LOG_FILE)
 
 # ------------------ Main Logic ------------------
+def find_mixed_model_win(timeout=10):
+    """Find the top-level 'Mixed Model' dialog (class #32770) from the desktop."""
+    end = time.time() + timeout
+    last_err = None
+    while time.time() < end:
+        try:
+            # Fast path: exact title + class (Win32 dialog)
+            hwnds = findwindows.find_windows(title_re='Mixed Model')
+            if hwnds:
+                return Desktop(backend="win32").window(handle=hwnds[0])
+        except Exception as e:
+            last_err = e
+        # Fallback: fuzzy title search across all top-level windows
+        try:
+            win = Desktop(backend="win32").window(title_re=r".*Mixed\s*Model.*")
+            if win.exists() and win.is_visible():
+                return win
+        except Exception as e:
+            last_err = e
+        time.sleep(0.2)
+    raise RuntimeError(f"Could not find top-level 'Mixed Model' dialog. Last error: {last_err}")
 
 def fill_analyze_dlg_params(main_win, analyze_dlg, txt_path, params):
     """
@@ -54,6 +75,47 @@ def fill_analyze_dlg_params(main_win, analyze_dlg, txt_path, params):
     print(f"[DEBUG] 选择模型索引: {model_index}")
     analyze_dlg.child_window(title="N2 in Carbon Slit pore at 77K", class_name="ComboBox").select(model_index)
     time.sleep(1)
+
+    if model_index == 0:
+        print("[DEBUG] Waiting for top-level 'Mixed Model' dialog…")
+        mixed_win = find_mixed_model_win(timeout=12)
+        mixed_win.wait('visible', timeout=5)
+        mixed_win.set_focus()
+        print("[DEBUG] Found 'Mixed Model' dialog.")
+        # (Optional) print full tree to confirm controls:
+        print("\n[DEBUG] Control identifiers for 'Mixed Model':")
+        # mixed_win.print_control_identifiers()
+        target_names = params.get("mixing_model_names", "")
+        if not target_names:
+            print("[WARN] No mixed_model_name found in settings.json")
+            return
+        else:
+            print(target_names)
+        lv = mixed_win.child_window(class_name="SysListView32").wrapper_object() 
+        print(lv.item_count())
+
+        for i in range(lv.item_count()):
+            try:
+                lv.get_item(i).uncheck()
+            except Exception:
+                pass
+
+        matched = []
+        for i in range(lv.item_count()):
+            text = lv.get_item(i).text()
+            if not text:
+                continue
+            if text in target_names:
+                try:
+                    lv.get_item(i).check()
+                    matched.append(text)
+                except Exception:
+                    print(f"[WARN] Could not check item: {text}")
+
+        print(f"[INFO] Checked models: {matched}")
+        send_keys("{ENTER}")
+
+
 
     # 5. Desorption CheckBox
     desorp_val = params.get("desorption", False)
@@ -90,8 +152,6 @@ def fill_analyze_dlg_params(main_win, analyze_dlg, txt_path, params):
                 break
     except Exception as e:
         print("[WARN] Smooth Factor未找到或无法填写：", e)
-
-    time.sleep(10)
     print("Wait 3s for data importing")
     send_keys("{ENTER}")
     time.sleep(1)
@@ -108,14 +168,32 @@ def fill_analyze_dlg_params(main_win, analyze_dlg, txt_path, params):
     click(coords=(csv_center_x, csv_center_y))
     print("窗口隐藏后文件存储")
     time.sleep(1)
-    send_keys("%D")
+    
+    if model_index == 0:
+        forced_name = f"{txt_path}_mixed_model.csv"
+        print(forced_name)
+        # Focus the "File name" field in the Save dialog (Alt+N works on standard dialogs)
+        # If your dialog uses a different mnemonic, replace with clicking the Edit or using tabbing.
+        try:
+            send_keys("%n")            # focus File name
+            time.sleep(0.2)
+        except Exception:
+            pass
 
-    folder = os.path.normpath(txt_path)
-    pyperclip.copy(os.path.dirname(folder))
-    send_keys("^v")
-    time.sleep(0.5)
-    send_keys("%S")
-    time.sleep(1)
+        # Clear any prefilled name (like "... mixed ....") and type our own
+        send_keys("^a{BACKSPACE}")
+        pyperclip.copy(forced_name)
+        send_keys("^v")
+        print(f"[DEBUG] Mixed model save name forced to: {forced_name}")
+        time.sleep(3)
+        send_keys("%S")
+        time.sleep(0.5)
+    else:
+        send_keys("%D")
+        folder = os.path.normpath(txt_path)
+        pyperclip.copy(os.path.dirname(folder))
+        send_keys("^v")
+        send_keys("{ENTER}")
 
     # 9. Check output CSV exists
     expected_dir = os.path.dirname(txt_path)
@@ -187,7 +265,7 @@ def batch_process(filelist_txt, params):
             process_one_file_dft(txt_path, app, params)
         except Exception as e:
             print(f"[DFT ERROR] {txt_path}: {e}")
-        time.sleep(1)
+        time.sleep(0.1)
 
     print("[DFT] 全部文件处理完毕。")
     app.kill()

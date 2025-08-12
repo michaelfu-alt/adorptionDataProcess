@@ -178,6 +178,8 @@ class ExternalWindow(QWidget):
         filelist_path = self.filelist_input.text().strip()
         settings_path = self.settings_input.text().strip()
         self.append_log(">>> 开始运行 Stencil 程序 <<<")
+        self.append_log(f"{settings_path}")
+
         self.stencil_manager.start_process(filelist_path, settings_path, script="stencilwizard_runner.py")
 
     def on_stencil_finished(self):

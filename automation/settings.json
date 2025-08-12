@@ -1,8 +1,8 @@
 {
-  "stencil_exe": "C:/Users/Dell/Desktop/StencilWizard.exe",
-  "soran_exe": "C:/Users/Dell/Desktop/iPoreDFT/Soran.exe",
-  "model": "N2 in Carbon Slit pore at 77K",
-  "model_index": 2,
+  "stencil_exe": "C:\\Users\\Dell\\Desktop\\StencilWizard.exe",
+  "soran_exe": "C:\\Users\\Dell\\Desktop\\iPoreDFT\\Soran.exe",
+  "model": "Mixing Model ...",
+  "model_index": 0,
   "model_options": [
     "Mixing Model ...",
     "N2 in Carbon Slit pore at 77K",
@@ -57,5 +57,13 @@
   "unit": "cm3(STP)/g",
   "min_pressure": "0.05",
   "max_pressure": "0.95",
-  "smooth_factor": "4"
+  "smooth_factor": "4",
+  "mixing_model_indices": [
+    2,
+    4
+  ],
+  "mixing_model_names": [
+    "N2 in Carbon Cylindrical pore at 77K",
+    "Ar in Zeolite Slit pore at 87K"
+  ]
 }

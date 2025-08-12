@@ -102,7 +102,7 @@ class ExternalProcessManager(QObject):
         self.process = None
 
     def start_process(self, program_name: str, settings_path: str, script: str):
-        script_path = os.path.abspath(os.path.join("automation", script))
+        script_path = os.path.abspath(os.path.join(script))
         program_path = os.path.abspath(program_name)
         settings_path = os.path.abspath(settings_path)
 
