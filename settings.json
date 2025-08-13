@@ -1,8 +1,6 @@
 {
   "stencil_exe": "C:\\Users\\Dell\\Desktop\\StencilWizard.exe",
   "soran_exe": "C:\\Users\\Dell\\Desktop\\iPoreDFT\\Soran.exe",
-  "model": "Mixing Model ...",
-  "model_index": 2,
   "model_options": [
     "Mixing Model ...",
     "N2 in Carbon Slit pore at 77K",
@@ -52,20 +50,14 @@
     "O2 in MFI Cylindrical pore at 77K",
     "O2 in MFI Spherical pore at 77K"
   ],
+  "model_index": 0,
+  "model": "Mixing Model ...",
   "desorption": false,
   "pp0": "p0",
   "unit": "cm3(STP)/g",
   "min_pressure": "0.05",
   "max_pressure": "0.95",
   "smooth_factor": "4",
-  "mixing_model_indices": [
-    1,
-    2,
-    3
-  ],
-  "mixing_model_names": [
-    "N2 in Carbon Slit pore at 77K",
-    "N2 in Carbon Cylindrical pore at 77K",
-    "N2 in Carbon Spherical pore at 77K"
-  ]
+  "mixing_model_indices": [],
+  "mixing_model_names": []
 }

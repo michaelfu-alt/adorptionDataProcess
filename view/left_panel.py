@@ -1,9 +1,12 @@
 # view/left_panel.py
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QLabel, QGroupBox,
-    QTableWidget, QTableWidgetItem, QMenu, QAbstractItemView, QFrame, QMessageBox)
+    QTableWidget, QTableWidgetItem, QMenu, QAbstractItemView, QFrame, QMessageBox, QDialog, QFileDialog)
 from PySide6.QtCore import Qt, Signal
+from view.skip_subfolders_dialog import SkipSubfoldersDialog
+from automation.external_view import ExternalWindow
 import os
+from pathlib import Path
 
 class LeftPanel(QWidget):
     # 可定义自定义信号，例如
@@ -43,12 +46,11 @@ class LeftPanel(QWidget):
 
         # 控制按钮区
         ctrl_layout = QHBoxLayout()
-        self.btn_merge_dft = QPushButton("Merge-DFT Files")
-        self.btn_load_folder = QPushButton("Load File Folder")
+        self.btn_dft_analysis = QPushButton("Test Watcher")
+        self.btn_merge_dft = QPushButton("AutoData")
+        self.btn_load_folder = QPushButton("Load Folder")
         self.btn_load_files = QPushButton("Load Files")
 
-
-        self.btn_dft_analysis = QPushButton("DFT Analysis")
         self.btn_save_db = QPushButton("Save DB")
         ctrl_layout.addWidget(self.btn_merge_dft)
         ctrl_layout.addWidget(self.btn_load_folder)
@@ -140,7 +142,9 @@ class LeftPanel(QWidget):
 
         #Load files
         self.btn_load_files.clicked.connect(self.on_load_files_btn_clicked)
+        self.btn_load_folder.clicked.connect(self.on_load_folder_btn_clicked)
 
+        
     def bind_controller(self, controller, last_db=None):
         self.controller = controller
         if last_db:
@@ -186,13 +190,9 @@ class LeftPanel(QWidget):
         self.controller.save_database()
 
 
+    def on_load_folder_clicked(self):
+        self.controller.load_folder()
 
-
-    def on_load_files_btn_clicked(self):
-        print("Load Files Clicked")
-        if self.controller:
-            print("controller is", self.controller)
-            self.controller.load_files()
     
     def set_status(self, msg):
         print("[STATUS]", msg)
@@ -313,7 +313,6 @@ class LeftPanel(QWidget):
     def show_no_duplicates(self):
         QMessageBox.information(self, "No Duplicates", "No duplicates found with same File Name and Sample Name.")
 
-
     def confirm_delete(self, to_delete):
         reply = QMessageBox.question(
             self, "Confirm Delete",
@@ -329,7 +328,6 @@ class LeftPanel(QWidget):
 
     def show_deleted_info(self, count):
         QMessageBox.information(self, "Duplicates Removed", f"Deleted {count} duplicate sample(s).")
-
 
     # Right click of context menu
     def show_context_menu(self, pos):
@@ -369,6 +367,7 @@ class LeftPanel(QWidget):
             self.statusBar().showMessage(message, 5000)
         elif hasattr(self, "status_label"):
             self.status_label.setText(message)
+    
     # Load files
     def on_load_files_btn_clicked(self):
         if self.controller:
@@ -377,6 +376,46 @@ class LeftPanel(QWidget):
     def show_error(self):
         print("Show error in View")
 
+    # Load folder
+    def on_load_folder_btn_clicked(self):
+        root = QFileDialog.getExistingDirectory(self, "Choose a root folder")
+        if not root:
+            return
+        root_path = Path(root)
+
+        # list ONLY first-level subfolders for skipping
+        subfolders = sorted([p.name for p in root_path.iterdir() if p.is_dir()])
+
+        dlg = SkipSubfoldersDialog(str(root_path), subfolders, parent=self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        skip_first_level = set(dlg.skipped())  # names of first-level dirs to skip
+
+        exts = {".xlsx", ".xlsm", ".xls"}
+        files: list[str] = []
+
+        # recurse; prune skipped subfolders at the TOP level
+        for dirpath, dirnames, filenames in os.walk(root_path):
+            # if we are at the root level, remove skipped folder names from traversal
+            if Path(dirpath) == root_path:
+                dirnames[:] = [d for d in dirnames if d not in skip_first_level]
+            # ignore hidden/lock/temp items anywhere
+            dirnames[:] = [d for d in dirnames if not d.startswith(".") and not d.startswith("~$")]
+            for fn in filenames:
+                if fn.startswith("~$") or fn.startswith("._"):
+                    continue
+                p = Path(dirpath) / fn
+                if p.suffix.lower() in exts:
+                    files.append(str(p.resolve()))
+
+        files = sorted(set(files))
+        if not files:
+            QMessageBox.information(self, "Load Folder", "No Excel files found.")
+            return
+
+        # hand off to existing QThread importer (via controller)
+        if self.controller:
+            self.controller.start_import_from_files(files)
     
     # Export to Excel
     def on_export_clicked(self):

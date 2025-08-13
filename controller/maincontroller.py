@@ -6,7 +6,7 @@ from controller.import_export import ImportExportManager, SampleExporter
 from controller.trace_sample import TraceController
 from view.export_excel_dialog import FieldSelectDialog
 from view.comparison_plot_dialog import ComparisonPlotDialog
-
+from view.skip_subfolders_dialog import SkipSubfoldersDialog
 import sqlite3
 
 
@@ -176,6 +176,14 @@ class MainController:
     def on_import_finished(self, loaded_files):
         self.view.left_panel.set_status(f"Import complete: {len(loaded_files)} files.")
         self.view.left_panel.refresh_sample_table()
+    
+    # Import Folder
+    def start_import_from_files(self, files: list[str]):
+        """Start threaded import using a precomputed list of file paths."""
+        if not files:
+            return
+        self.import_manager.start_import(self.view.left_panel, files=files)
+
     
     # Export Sample to excel
     def export_samples(self):
