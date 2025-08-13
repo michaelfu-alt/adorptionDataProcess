@@ -3,16 +3,21 @@ from PySide6.QtWidgets import (
     QLabel, QLineEdit, QFileDialog, QDialog,QHBoxLayout, QApplication, QProgressBar
 )
 from PySide6.QtCore import Qt
-from external_process_manager import ExternalProcessManager
 import sys
 import os
 import tempfile
-from folder_filter_dialog import FolderFilterDialog
-from file_utils import scan_iprd_files, write_filelist
 from PySide6.QtWidgets import QCheckBox
+# from automation.external_process_manager import ExternalProcessManager
+# from automation.merge_dft_worker import MergeDftWorker
+# from automation.settings_dialog import SettingsDialog
+# from automation.folder_filter_dialog import FolderFilterDialog
+# from automation.file_utils import scan_iprd_files, write_filelist
+
+from external_process_manager import ExternalProcessManager
 from merge_dft_worker import MergeDftWorker
 from settings_dialog import SettingsDialog
-
+from folder_filter_dialog import FolderFilterDialog
+from file_utils import scan_iprd_files, write_filelist, convert_iprd_paths_to_txt_file
 
 class ExternalWindow(QWidget):
     def __init__(self):
@@ -42,18 +47,18 @@ class ExternalWindow(QWidget):
 
         # Layout 1：选择目录（生成文件列表）
         folder_layout = QHBoxLayout()
-        folder_layout.addWidget(QLabel("数据目录:"))
+        folder_layout.addWidget(QLabel("Choose Data Folder:"))
         folder_layout.addWidget(self.select_folder_btn)
 
         # Layout 2：文件列表路径
         filelist_layout = QHBoxLayout()
-        filelist_layout.addWidget(QLabel("文件列表:"))
+        filelist_layout.addWidget(QLabel("File List:"))
         filelist_layout.addWidget(self.filelist_input)
         filelist_layout.addWidget(self.filelist_btn)
 
         # Layout 3：设置文件路径
         settings_layout = QHBoxLayout()
-        settings_layout.addWidget(QLabel("设置路径:"))
+        settings_layout.addWidget(QLabel("Path:"))
         settings_layout.addWidget(self.settings_input)
         settings_layout.addWidget(self.settings_btn)
         
@@ -65,10 +70,10 @@ class ExternalWindow(QWidget):
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
         # Buttons
-        self.start_stencil_btn = QPushButton("运行 Stencil 控制流程")
-        self.start_both_btn = QPushButton("运行 Stencil + Soran 流程")
-        self.start_soran_btn = QPushButton("仅运行 Soran 控制流程")  # NEW
-        self.settings_main_btn = QPushButton("设置…")
+        self.start_stencil_btn = QPushButton("Run StencilWizard")
+        self.start_soran_btn = QPushButton("Run Soran DFT") 
+        self.start_both_btn = QPushButton("Run StencilWizard + Soran DFT")
+        self.settings_main_btn = QPushButton("Settings…")
 
         self.settings_main_btn.clicked.connect(self.open_settings_dialog)
         self.start_stencil_btn.clicked.connect(self.run_stencil_only)
@@ -78,15 +83,15 @@ class ExternalWindow(QWidget):
 
         btn_layout = QHBoxLayout()
         btn_layout.addWidget(self.start_stencil_btn)
-        btn_layout.addWidget(self.start_both_btn)
-        btn_layout.addWidget(self.start_soran_btn)  # NEW
+        btn_layout.addWidget(self.start_soran_btn) 
+        btn_layout.addWidget(self.start_both_btn) # NEW
         btn_layout.addWidget(self.settings_main_btn)
 
         layout = QVBoxLayout()
         layout.addLayout(folder_layout)
         layout.addLayout(filelist_layout)
         layout.addLayout(settings_layout)
-        layout.addWidget(QLabel("运行日志："))
+        layout.addWidget(QLabel("Logging："))
         layout.addWidget(self.logbox)
         layout.addLayout(btn_layout)
         layout.addWidget(self.status_label)
@@ -109,7 +114,7 @@ class ExternalWindow(QWidget):
         self.pending_soran = False
 
     def select_and_prepare_filelist(self):
-        root_dir = QFileDialog.getExistingDirectory(self, "选择数据主目录")
+        root_dir = QFileDialog.getExistingDirectory(self, "Choose Root Folder")
         if not root_dir:
             return
         self.iprd_root_folder = root_dir
@@ -120,8 +125,8 @@ class ExternalWindow(QWidget):
             return
 
         excluded = dialog.get_excluded_folders()
-        self.append_log(f"排除文件夹: {excluded}")
-        self.append_log(f"[Root] 使用根目录：{self.iprd_root_folder}")
+        self.append_log(f"Exclude: {excluded}")
+        self.append_log(f"[Root] Folder：{self.iprd_root_folder}")
 
 
         # 扫描 .iPrd 文件
@@ -131,7 +136,7 @@ class ExternalWindow(QWidget):
             self.append_log(f"{idx:3}. {path}")
         self.append_log("-" * 60)
 
-        self.append_log(f"共找到 {len(iprd_files)} 个 .iPrd 文件")
+        self.append_log(f"Total {len(iprd_files)}  .iPrd files")
 
         # 写入文件列表
         filelist_path = os.path.abspath("processfileiprdlist.txt")
@@ -141,12 +146,12 @@ class ExternalWindow(QWidget):
         self.filelist_input.setText(filelist_path)
     
     def select_filelist(self):
-        path, _ = QFileDialog.getOpenFileName(self, "选择文件列表", "", "Text Files (*.txt);;All Files (*)")
+        path, _ = QFileDialog.getOpenFileName(self, "Choose File List", "", "Text Files (*.txt);;All Files (*)")
         if path:
             self.filelist_input.setText(path)
 
     def select_settings(self):
-        path, _ = QFileDialog.getOpenFileName(self, "选择设置文件", "", "JSON Files (*.json);;All Files (*)")
+        path, _ = QFileDialog.getOpenFileName(self, "Choose Settings", "", "JSON Files (*.json);;All Files (*)")
         if path:
             self.settings_input.setText(path)
 
@@ -169,39 +174,39 @@ class ExternalWindow(QWidget):
                     root_guess = os.path.dirname(os.path.commonprefix(lines)) or os.path.dirname(lines[0])
                     if os.path.isdir(root_guess):
                         self.iprd_root_folder = root_guess
-                        self.append_log(f"[Root] 从清单预设根目录：{self.iprd_root_folder}")
+                        self.append_log(f"[Root] Choose Root Folder：{self.iprd_root_folder}")
             except Exception as e:
-                self.append_log(f"[WARN] 预设根目录失败：{e}")
+                self.append_log(f"[WARN] Root setting unsuccessful：{e}")
         self._run_stencil()
 
     def _run_stencil(self):
         filelist_path = self.filelist_input.text().strip()
         settings_path = self.settings_input.text().strip()
-        self.append_log(">>> 开始运行 Stencil 程序 <<<")
+        self.append_log(">>> Starting StencilWizard <<<")
         self.append_log(f"{settings_path}")
 
         self.stencil_manager.start_process(filelist_path, settings_path, script="stencilwizard_runner.py")
 
     def on_stencil_finished(self):
-        self.append_log(">>> Stencil 任务完成 <<<")
+        self.append_log(">>> StencilWizard Job Completed <<<")
         if self.pending_soran:
-            self.append_log(">>> 准备转换文件列表为 Soran 格式（.txt） <<<")
+            self.append_log(">>> Start Soran（.txt） DFT Calculation<<<")
             filelist_path = self.filelist_input.text().strip()
             settings_path = self.settings_input.text().strip()
 
         # Convert file list
         try:
             soran_filelist_path = self.convert_filelist_iprd_to_txt(filelist_path)
-            self.append_log(f">>> 已生成 Soran 文件列表：{soran_filelist_path}")
+            self.append_log(f">>> Generated Soran filelist：{soran_filelist_path}")
         except Exception as e:
-            self.append_log(f"[ERROR] 生成 Soran 文件列表失败: {e}")
+            self.append_log(f"[ERROR]  Soran filelist unsuccessfuly: {e}")
             return
         
-        self.append_log(">>> 开始运行 Soran 程序 <<<")
+        self.append_log(">>> Starting Soran DFT <<<")
         self.soran_manager.start_process(soran_filelist_path, settings_path, script="soran_runner.py")
 
     def on_soran_finished(self):
-        self.append_log(">>> Soran 任务完成 <<<")
+        self.append_log(">>> Soran Job Finished <<<")
         if self.auto_merge_checkbox.isChecked():
         # Ensure we have a valid root; try to infer from the file list if missing
             if not self.iprd_root_folder or not os.path.isdir(self.iprd_root_folder):
@@ -216,12 +221,12 @@ class ExternalWindow(QWidget):
                                 self.iprd_root_folder = root_guess
                                 self.append_log(f"[Root] 从清单推断根目录：{self.iprd_root_folder}")
                 except Exception as e:
-                    self.append_log(f"[WARN] 推断根目录失败：{e}")
+                    self.append_log(f"[WARN] Root Unsuccessful：{e}")
 
         if not self.iprd_root_folder or not os.path.isdir(self.iprd_root_folder):
             self.append_log("[合并] 根目录无效，跳过自动合并。")
         else:
-            self.append_log(f"[合并] 使用根目录（无需确认）：{self.iprd_root_folder}")
+            self.append_log(f"[Merge] Use Root（无需确认）：{self.iprd_root_folder}")
             self.run_merge_dft(self.iprd_root_folder)
 
         self.append_log(">>> 所有任务已完成<<<")
@@ -233,21 +238,6 @@ class ExternalWindow(QWidget):
         self.append_log(">>> 开始运行 Soran 程序 <<<")
         self.soran_manager.start_process(filelist_path, settings_path, script="soran_runner.py")
 
-    def convert_filelist_iprd_to_txt(self, original_path: str) -> str:
-        with open(original_path, "r", encoding="utf-8") as f:
-            iprd_lines = [line.strip() for line in f if line.strip()]
-
-        txt_lines = [line.replace(".iPrd", ".txt") for line in iprd_lines]
-
-        # Write to temporary file
-        fd, tmp_path = tempfile.mkstemp(suffix=".txt", prefix="converted_soran_list_", text=True)
-        os.close(fd)  # Close the OS-level file handle (we'll overwrite it below)
-
-        with open(tmp_path, "w", encoding="utf-8") as out:
-            for line in txt_lines:
-                out.write(line + "\n")
-
-        return tmp_path
 
     def run_merge_dft(self, top_folder):
         self.merge_worker = MergeDftWorker(top_folder)

@@ -143,7 +143,6 @@ class FilterDialog(QDialog):
             v2    = d["v2"].text().strip() if op == "between" else ""
             if not field or not op:
                 continue
-            # allow empty v1 only for is-empty/!=? (not implemented here) — so require v1
             if op != "between" and v1 == "":
                 continue
             if op == "between" and (v1 == "" or v2 == ""):
